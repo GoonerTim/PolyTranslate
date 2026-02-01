@@ -43,18 +43,60 @@ class FileProcessor:
         """Detect the encoding of file content."""
         try:
             result = chardet.detect(file_content)
-            return result.get("encoding") or "utf-8"
+            detected = result.get("encoding")
+            confidence = result.get("confidence", 0)
+
+            # If confidence is low, try common encodings
+            if not detected or confidence < 0.7:
+                # Try UTF-8 first (most common)
+                try:
+                    file_content.decode("utf-8")
+                    return "utf-8"
+                except UnicodeDecodeError:
+                    pass
+
+                # Try UTF-8 with BOM
+                if file_content.startswith(b'\xef\xbb\xbf'):
+                    return "utf-8-sig"
+
+                # Try common Windows encodings
+                for enc in ["cp1251", "cp1252", "windows-1251", "windows-1252"]:
+                    try:
+                        file_content.decode(enc)
+                        return enc
+                    except (UnicodeDecodeError, LookupError):
+                        continue
+
+            return detected or "utf-8"
         except Exception:
             return "utf-8"
 
     @staticmethod
     def read_txt(file_content: bytes) -> str:
         """Read a text file."""
-        encoding = FileProcessor.detect_encoding(file_content)
-        try:
-            return file_content.decode(encoding)
-        except Exception:
-            return file_content.decode("utf-8", errors="ignore")
+        # Try multiple encodings with priority
+        encodings = [
+            FileProcessor.detect_encoding(file_content),
+            "utf-8",
+            "utf-8-sig",
+            "cp1251",
+            "windows-1251",
+            "cp1252",
+            "windows-1252",
+            "latin-1",
+        ]
+
+        for encoding in encodings:
+            try:
+                decoded = file_content.decode(encoding)
+                # Check if decoded text looks reasonable (no excessive mojibake)
+                if not all(ord(char) > 127 and ord(char) < 160 for char in decoded[:100]):
+                    return decoded
+            except (UnicodeDecodeError, LookupError, AttributeError):
+                continue
+
+        # Last resort: UTF-8 with error replacement
+        return file_content.decode("utf-8", errors="replace")
 
     @staticmethod
     def read_pdf(file_content: bytes) -> str:

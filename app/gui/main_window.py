@@ -66,24 +66,26 @@ class MainWindow:
 
         self.root.title("✨ PolyTranslate - Modern Translation Suite")
         self.root.geometry(self.settings.get_window_geometry())
-        self.root.minsize(1000, 700)
+        self.root.minsize(1200, 700)
 
         ctk.set_appearance_mode(self.settings.get_theme())
         ctk.set_default_color_theme("blue")
 
-        self.root.columnconfigure(0, weight=1)
+        self.root.columnconfigure(0, weight=1)  # Controls panel
+        self.root.columnconfigure(1, weight=4)  # Main content area (results)
         self.root.rowconfigure(2, weight=1)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _create_widgets(self) -> None:
         self._create_menu()
-        self._create_toolbar()
+        self._create_controls_panel()
+        self._create_progress_bar()
         self._create_main_content()
         self._create_status_bar()
 
     def _create_menu(self) -> None:
         menu_frame = ctk.CTkFrame(self.root, height=50, corner_radius=0)
-        menu_frame.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
+        menu_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=0, pady=0)
 
         # Logo/Title
         title_label = ctk.CTkLabel(
@@ -151,89 +153,87 @@ class MainWindow:
         )
         self.theme_button.pack(side="right", padx=15)
 
-    def _create_toolbar(self) -> None:
-        toolbar = ctk.CTkFrame(self.root, corner_radius=0)
-        toolbar.grid(row=1, column=0, sticky="new", padx=0, pady=0)
+    def _create_controls_panel(self) -> None:
+        controls = ctk.CTkScrollableFrame(self.root, corner_radius=0)
+        controls.grid(row=1, column=0, rowspan=2, sticky="nsew", padx=(0, 0), pady=0)
 
-        content = ctk.CTkFrame(toolbar, fg_color="transparent")
-        content.pack(fill="both", expand=True, padx=20, pady=15)
+        content = ctk.CTkFrame(controls, fg_color="transparent")
+        content.pack(fill="both", expand=True, padx=10, pady=10)
 
+        # File drop zone (compact)
         self.file_drop = FileDropZone(
             content,
             on_file_drop=self._on_file_selected,
-            width=960,
-            height=140,
+            width=280,
+            height=100,
         )
-        self.file_drop.pack(pady=(0, 15))
+        self.file_drop.pack(pady=(0, 10))
 
+        # Language settings in 2 rows
         lang_card = ctk.CTkFrame(content, corner_radius=12)
-        lang_card.pack(fill="x", pady=(0, 15))
+        lang_card.pack(fill="x", pady=(0, 10))
 
         lang_inner = ctk.CTkFrame(lang_card, fg_color="transparent")
-        lang_inner.pack(fill="x", padx=20, pady=15)
+        lang_inner.pack(fill="x", padx=15, pady=12)
 
         ctk.CTkLabel(
             lang_inner,
-            text="🌍 Language Settings",
-            font=ctk.CTkFont(size=14, weight="bold"),
-        ).pack(anchor="w", pady=(0, 10))
+            text="🌍 Languages",
+            font=ctk.CTkFont(size=13, weight="bold"),
+        ).pack(anchor="w", pady=(0, 8))
 
-        lang_options = ctk.CTkFrame(lang_inner, fg_color="transparent")
-        lang_options.pack(fill="x")
-
-        source_frame = ctk.CTkFrame(lang_options, fg_color="transparent")
-        source_frame.pack(side="left", padx=(0, 30))
+        # Source language
+        source_frame = ctk.CTkFrame(lang_inner, fg_color="transparent")
+        source_frame.pack(fill="x", pady=(0, 5))
 
         ctk.CTkLabel(
-            source_frame, text="From:", font=ctk.CTkFont(size=12, weight="bold")
-        ).pack(anchor="w", pady=(0, 5))
+            source_frame, text="From:", font=ctk.CTkFont(size=11, weight="bold")
+        ).pack(anchor="w", pady=(0, 3))
         source_langs = get_source_languages()
         self.source_lang_var = ctk.StringVar(value=self.settings.get_source_language())
         self.source_lang_menu = ctk.CTkOptionMenu(
             source_frame,
             variable=self.source_lang_var,
             values=list(source_langs.keys()),
-            width=180,
-            height=35,
+            width=250,
+            height=32,
             corner_radius=8,
-            font=ctk.CTkFont(size=13),
+            font=ctk.CTkFont(size=12),
         )
-        self.source_lang_menu.pack()
+        self.source_lang_menu.pack(fill="x")
 
-        ctk.CTkLabel(lang_options, text="→", font=ctk.CTkFont(size=24)).pack(
-            side="left", padx=10
-        )
-
-        target_frame = ctk.CTkFrame(lang_options, fg_color="transparent")
-        target_frame.pack(side="left", padx=(30, 0))
+        # Target language
+        target_frame = ctk.CTkFrame(lang_inner, fg_color="transparent")
+        target_frame.pack(fill="x")
 
         ctk.CTkLabel(
-            target_frame, text="To:", font=ctk.CTkFont(size=12, weight="bold")
-        ).pack(anchor="w", pady=(0, 5))
+            target_frame, text="To:", font=ctk.CTkFont(size=11, weight="bold")
+        ).pack(anchor="w", pady=(0, 3))
         target_langs = get_target_languages()
         self.target_lang_var = ctk.StringVar(value=self.settings.get_target_language())
         self.target_lang_menu = ctk.CTkOptionMenu(
             target_frame,
             variable=self.target_lang_var,
             values=list(target_langs.keys()),
-            width=180,
-            height=35,
+            width=250,
+            height=32,
             corner_radius=8,
-            font=ctk.CTkFont(size=13),
+            font=ctk.CTkFont(size=12),
         )
-        self.target_lang_menu.pack()
+        self.target_lang_menu.pack(fill="x")
 
+        # Translation services in 2 columns
         services_card = ctk.CTkFrame(content, corner_radius=12)
-        services_card.pack(fill="x", pady=(0, 15))
+        services_card.pack(fill="x", pady=(0, 10))
 
         services_inner = ctk.CTkFrame(services_card, fg_color="transparent")
-        services_inner.pack(fill="x", padx=20, pady=15)
+        services_inner.pack(fill="x", padx=15, pady=12)
 
         ctk.CTkLabel(
             services_inner,
-            text="🔧 Translation Services",
-            font=ctk.CTkFont(size=14, weight="bold"),
-        ).pack(anchor="w", pady=(0, 10))
+            text="🔧 Services",
+            font=ctk.CTkFont(size=13, weight="bold"),
+        ).pack(anchor="w", pady=(0, 8))
 
         services_grid = ctk.CTkFrame(services_inner, fg_color="transparent")
         services_grid.pack(fill="x")
@@ -253,68 +253,80 @@ class MainWindow:
             "localai": "💻",
         }
 
-        for service_id, service_name in self.SERVICES.items():
+        # Create checkboxes in 2-column grid
+        services_list = list(self.SERVICES.items())
+        for idx, (service_id, service_name) in enumerate(services_list):
             var = ctk.BooleanVar(value=service_id in selected)
             self.service_vars[service_id] = var
             icon = service_icons.get(service_id, "•")
+
+            row_frame = ctk.CTkFrame(services_grid, fg_color="transparent")
+            row_frame.pack(fill="x", pady=2)
+
             cb = ctk.CTkCheckBox(
-                services_grid,
+                row_frame,
                 text=f"{icon} {service_name}",
                 variable=var,
                 width=120,
-                font=ctk.CTkFont(size=12),
+                font=ctk.CTkFont(size=11),
                 corner_radius=6,
             )
-            cb.pack(side="left", padx=8, pady=5)
+            cb.pack(anchor="w", padx=5)
 
+        # Action buttons
         action_frame = ctk.CTkFrame(content, fg_color="transparent")
-        action_frame.pack(fill="x", pady=(0, 10))
+        action_frame.pack(fill="x", pady=(0, 8))
 
         self.translate_button = ctk.CTkButton(
             action_frame,
-            text="🚀 Translate Now",
+            text="🚀 Translate",
             command=self._start_translation,
-            width=200,
-            height=45,
+            height=40,
             corner_radius=10,
-            font=ctk.CTkFont(size=16, weight="bold"),
+            font=ctk.CTkFont(size=14, weight="bold"),
             fg_color=("#2563eb", "#1e40af"),
             hover_color=("#1d4ed8", "#1e3a8a"),
         )
-        self.translate_button.pack(side="left", padx=5)
+        self.translate_button.pack(fill="x", pady=3)
 
         self.compare_button = ctk.CTkButton(
             action_frame,
-            text="📊 Compare Results",
+            text="📊 Compare",
             command=self._show_comparison,
-            width=150,
-            height=45,
+            height=38,
             corner_radius=10,
-            font=ctk.CTkFont(size=14),
+            font=ctk.CTkFont(size=13),
             state="disabled",
         )
-        self.compare_button.pack(side="left", padx=5)
+        self.compare_button.pack(fill="x", pady=3)
 
         self.clear_button = ctk.CTkButton(
             action_frame,
             text="🗑️ Clear",
             command=self._clear_all,
-            width=120,
-            height=45,
+            height=38,
             corner_radius=10,
-            font=ctk.CTkFont(size=14),
+            font=ctk.CTkFont(size=13),
             fg_color=("gray70", "gray30"),
             hover_color=("gray60", "gray40"),
         )
-        self.clear_button.pack(side="left", padx=5)
+        self.clear_button.pack(fill="x", pady=3)
 
-        self.progress = ProgressBar(content, width=960)
-        self.progress.pack(pady=(10, 0))
+    def _create_progress_bar(self) -> None:
+        progress_frame = ctk.CTkFrame(self.root, corner_radius=0, height=60)
+        progress_frame.grid(row=1, column=1, sticky="ew", padx=0, pady=0)
+        progress_frame.grid_propagate(False)
+
+        content = ctk.CTkFrame(progress_frame, fg_color="transparent")
+        content.pack(fill="both", expand=True, padx=20, pady=10)
+
+        self.progress = ProgressBar(content)
+        self.progress.pack(fill="x")
 
     def _create_main_content(self) -> None:
 
         content = ctk.CTkFrame(self.root, corner_radius=0)
-        content.grid(row=2, column=0, sticky="nsew", padx=0, pady=(0, 0))
+        content.grid(row=2, column=1, sticky="nsew", padx=0, pady=0)
 
         # Inner container with padding
         inner = ctk.CTkFrame(content, fg_color="transparent")
@@ -530,7 +542,7 @@ class MainWindow:
     def _create_status_bar(self) -> None:
 
         status_frame = ctk.CTkFrame(self.root, height=35, corner_radius=0)
-        status_frame.grid(row=3, column=0, sticky="ew", padx=0, pady=0)
+        status_frame.grid(row=3, column=0, columnspan=2, sticky="ew", padx=0, pady=0)
 
         # Status indicator
         self.status_indicator = ctk.CTkLabel(
@@ -792,15 +804,20 @@ class MainWindow:
             )
             save_btn.pack(side="right", padx=5)
 
-            # Text box with nice styling
+            # Text box with nice styling (scrollable and copyable, but read-only)
             text_box = ctk.CTkTextbox(
                 tab,
                 wrap="word",
                 corner_radius=8,
                 font=ctk.CTkFont(size=13),
+                activate_scrollbars=True,
             )
             text_box.pack(fill="both", expand=True, padx=10, pady=(0, 10))
             text_box.insert("1.0", translation)
+            # Make read-only but keep text selectable for copying
+            text_box.configure(state="normal")
+            # Prevent editing while allowing selection and copying
+            self._make_textbox_readonly(text_box)
 
         # Update comparison tab
         self._update_comparison_tab()
@@ -912,11 +929,20 @@ class MainWindow:
         )
         stats.pack(fill="x", padx=10, pady=(0, 5))
 
-        # Text area
-        text_box = ctk.CTkTextbox(panel, wrap="word", height=300, font=ctk.CTkFont(size=12))
+        # Text area (scrollable and copyable)
+        text_box = ctk.CTkTextbox(
+            panel,
+            wrap="word",
+            height=300,
+            font=ctk.CTkFont(size=12),
+            activate_scrollbars=True,
+        )
         text_box.pack(fill="both", expand=True, padx=10, pady=5)
         text_box.insert("1.0", text)
-        text_box.configure(state="disabled")
+        # Keep normal state to allow text selection and copying
+        text_box.configure(state="normal")
+        # Prevent editing while allowing selection and copying
+        self._make_textbox_readonly(text_box)
 
         # Copy button
         copy_btn = ctk.CTkButton(
@@ -1183,6 +1209,29 @@ class MainWindow:
         self.glossary_entry_widgets.clear()
         self._add_glossary_row()
         self._status("Glossary entries cleared")
+
+    def _make_textbox_readonly(self, textbox: ctk.CTkTextbox) -> None:
+        """Make textbox read-only while keeping text selectable and copyable."""
+        def on_key(event: Any) -> str:
+            # Allow Ctrl+C, Ctrl+A, and navigation keys
+            if event.state & 0x0004:  # Ctrl key
+                if event.keysym in ("c", "a", "C", "A"):
+                    return "continue"
+            if event.keysym in (
+                "Left",
+                "Right",
+                "Up",
+                "Down",
+                "Home",
+                "End",
+                "Prior",
+                "Next",
+            ):
+                return "continue"
+            # Block all other keys
+            return "break"
+
+        textbox._textbox.bind("<Key>", on_key)  # type: ignore[attr-defined]
 
     def _status(self, message: str) -> None:
 
