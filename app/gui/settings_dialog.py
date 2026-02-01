@@ -34,7 +34,7 @@ class SettingsDialog(ctk.CTkToplevel):
         self.on_save = on_save
 
         self.title("Settings")
-        self.geometry("500x700")
+        self.geometry("500x850")
         self.resizable(False, False)
 
         # Make modal
@@ -60,6 +60,7 @@ class SettingsDialog(ctk.CTkToplevel):
         self._create_section_label("API Keys")
 
         self.api_entries: dict[str, ctk.CTkEntry] = {}
+        self.model_vars: dict[str, ctk.StringVar] = {}
 
         api_services = [
             ("deepl", "DeepL API Key"),
@@ -105,6 +106,54 @@ class SettingsDialog(ctk.CTkToplevel):
             "Server URL:", "http://localhost:8080/v1"
         )
         self.localai_model_entry = self._create_labeled_entry("Model:", "default")
+
+        # Model Settings
+        self._create_section_label("Model Settings")
+
+        # OpenAI Model
+        self._create_model_dropdown(
+            "OpenAI Model:",
+            "openai_model",
+            [
+                "gpt-4-turbo-preview",
+                "gpt-4",
+                "gpt-3.5-turbo",
+                "gpt-4o",
+                "gpt-4o-mini",
+            ],
+        )
+
+        # Claude Model
+        self._create_model_dropdown(
+            "Claude Model:",
+            "claude_model",
+            [
+                "claude-3-opus-20240229",
+                "claude-3-sonnet-20240229",
+                "claude-3-haiku-20240307",
+                "claude-2.1",
+                "claude-2.0",
+                "claude-instant-1.2",
+            ],
+        )
+
+        # Groq Model
+        self._create_model_dropdown(
+            "Groq Model:",
+            "groq_model",
+            [
+                "mixtral-8x7b-32768",
+                "llama2-70b-4096",
+                "gemma-7b-it",
+                "llama3-8b-8192",
+                "llama3-70b-8192",
+            ],
+        )
+
+        # OpenRouter Model
+        self.openrouter_model_entry = self._create_labeled_entry(
+            "OpenRouter Model:", "openai/gpt-3.5-turbo"
+        )
 
         # AI Evaluation Settings
         self._create_section_label("AI Evaluation Settings")
@@ -223,6 +272,18 @@ class SettingsDialog(ctk.CTkToplevel):
 
         return entry
 
+    def _create_model_dropdown(self, label: str, key: str, values: list[str]) -> None:
+        """Create a model selection dropdown."""
+        frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        frame.pack(fill="x", padx=5, pady=3)
+
+        ctk.CTkLabel(frame, text=label, width=150, anchor="w").pack(side="left", padx=5)
+        var = ctk.StringVar(value=values[0])
+        dropdown = ctk.CTkOptionMenu(frame, variable=var, values=values, width=300)
+        dropdown.pack(side="left", padx=5)
+
+        self.model_vars[key] = var
+
     def _load_settings(self) -> None:
         """Load current settings into the dialog."""
         api_keys = self.settings.get_api_keys()
@@ -246,6 +307,14 @@ class SettingsDialog(ctk.CTkToplevel):
         # AI Evaluator
         self.ai_evaluator_service_var.set(self.settings.get("ai_evaluator_service", ""))
 
+        # Model settings
+        for key, var in self.model_vars.items():
+            var.set(self.settings.get(key, var.get()))
+
+        # OpenRouter model (text entry)
+        openrouter_model = self.settings.get("openrouter_model", "openai/gpt-3.5-turbo")
+        self.openrouter_model_entry.insert(0, openrouter_model)
+
         # Processing settings
         self.chunk_size_slider.set(self.settings.get_chunk_size())
         self.chunk_size_label.configure(text=str(self.settings.get_chunk_size()))
@@ -268,6 +337,13 @@ class SettingsDialog(ctk.CTkToplevel):
 
         # AI Evaluator
         self.settings.set("ai_evaluator_service", self.ai_evaluator_service_var.get())
+
+        # Model settings
+        for key, var in self.model_vars.items():
+            self.settings.set(key, var.get())
+
+        # OpenRouter model (text entry)
+        self.settings.set("openrouter_model", self.openrouter_model_entry.get())
 
         # Processing settings
         self.settings.set_chunk_size(int(self.chunk_size_slider.get()))

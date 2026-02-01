@@ -17,6 +17,14 @@ except ImportError:
 class OpenAIService(TranslationService):
     """OpenAI GPT translation service."""
 
+    AVAILABLE_MODELS = [
+        "gpt-4-turbo-preview",
+        "gpt-4",
+        "gpt-3.5-turbo",
+        "gpt-4o",
+        "gpt-4o-mini",
+    ]
+
     def __init__(self, api_key: str = "", model: str = "gpt-3.5-turbo") -> None:
         """
         Initialize OpenAI service.
