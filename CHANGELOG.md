@@ -5,6 +5,35 @@ All notable changes to PolyTranslate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-02-01
+
+### Added
+
+#### Translation Editing & Comparison
+- **Editable Translations**: All translation text areas are now fully editable
+  - Edit translations directly in both Results and Comparison tabs
+  - Changes automatically saved in memory
+  - Copy button uses current edited content
+  - Save button preserves edited translations to file
+
+- **Original Text Comparison**: Compare translations with source text
+  - Original text displayed as first panel in Comparison tab
+  - Marked with 📄 icon and green color for easy identification
+  - Side-by-side view: Original → Translation 1 → Translation 2 → ...
+  - Original text is read-only (protected from accidental editing)
+  - Grid layout automatically adapts to show original + all translations
+
+### Improved
+- Enhanced Comparison tab with better visual hierarchy
+- Original text loaded from history when viewing past translations
+- Better user feedback with color-coded panels (green for original, blue for translations)
+
+### Technical
+- Added `_original_text` field to store source text for comparison
+- Text modification tracking with `<<Modified>>` event bindings
+- Automatic translation dictionary updates on edit
+- All tests passing (249 tests, 89% coverage)
+
 ## [2.1.0] - 2026-02-01
 
 ### Changed

@@ -3,8 +3,8 @@ mm# PolyTranslate
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-248%20passed-brightgreen.svg)
-![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-249%20passed-brightgreen.svg)
+![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 **Modern desktop translation application with beautiful UI and support for multiple translation services**
@@ -26,8 +26,10 @@ PolyTranslate is a feature-rich desktop translation application with a **stunnin
 - **🆓 FREE Services**: DeepL, Google, and Yandex work without API keys using unofficial APIs
 - **🎨 Modern UI**: Beautiful redesigned interface with gradients, icons, and smooth animations
 - **📑 Tabbed Interface**: All features in one window - no popup dialogs
+- **✏️ Editable Translations**: Edit translations directly in the interface - all text areas are fully editable
+- **📄 Original Text Comparison**: Compare translations with source text side-by-side
 - **Parallel Processing**: Translate large texts in chunks with multiple workers
-- **Service Comparison**: Compare translations from different services side-by-side
+- **Service Comparison**: Compare translations from different services side-by-side in grid layout
 - **Glossary Management**: Built-in glossary editor with real-time updates
 - **Translation History**: Track and review past translations with instant loading
 - **Auto Language Detection**: Automatically detect source language
@@ -101,11 +103,17 @@ python main.py
 1. **Load Text**: Drag & drop a file or click "Open" to browse
 2. **Select Languages**: Choose source (or Auto) and target languages
 3. **Select Services**: Check one or more translation services
-4. **Translate**: Click the "🚀 Translate Now" button
-5. **View Results**:
+4. **Translate**: Click the "🚀 Translate" button
+5. **View & Edit Results**:
    - **📝 Results tab**: View individual translations from each service
-   - **📊 Comparison tab**: See all translations side-by-side in a grid layout
-   - Click "📊 Compare Results" button to quickly switch to comparison view
+     - All translations are **fully editable** - click and type to modify
+     - Changes saved automatically
+     - Use 💾 Save button to export edited translation to file
+   - **📊 Comparison tab**: See original text + all translations side-by-side
+     - Original text shown in first panel (📄 icon, green color)
+     - Edit any translation directly in the comparison view
+     - Perfect for comparing quality and making adjustments
+   - Click "📊 Compare" button to quickly switch to comparison view
 
 ### Configuration
 
@@ -273,9 +281,9 @@ class TranslationService(ABC):
 
 ## 📊 Testing
 
-- **Unit Tests**: 248 tests covering all core modules
+- **Unit Tests**: 249 tests covering all core modules
 - **Integration Tests**: End-to-end workflow testing
-- **Coverage**: 90% code coverage
+- **Coverage**: 89% code coverage
 - **CI/CD Ready**: All tests automated with pytest
 
 Test categories:

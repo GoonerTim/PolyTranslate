@@ -56,7 +56,7 @@ class FileProcessor:
                     pass
 
                 # Try UTF-8 with BOM
-                if file_content.startswith(b'\xef\xbb\xbf'):
+                if file_content.startswith(b"\xef\xbb\xbf"):
                     return "utf-8-sig"
 
                 # Try common Windows encodings

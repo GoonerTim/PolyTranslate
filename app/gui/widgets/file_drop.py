@@ -140,9 +140,7 @@ class FileDropZone(ctk.CTkFrame):
         self._reset_appearance()
 
     def _on_drag_enter(self, event: object) -> None:
-        self.configure(
-            border_color=("#10b981", "#34d399"), fg_color=("#d1fae5", "#064e3b")
-        )
+        self.configure(border_color=("#10b981", "#34d399"), fg_color=("#d1fae5", "#064e3b"))
         self.icon_label.configure(text="⬇️")
 
     def _on_drag_leave(self, event: object) -> None:
@@ -153,7 +151,6 @@ class FileDropZone(ctk.CTkFrame):
         self.icon_label.configure(text="📎")
 
     def _browse_files(self) -> None:
-
         from tkinter import filedialog
 
         filetypes = [

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 import requests
 
 from app.config.languages import CHATGPT_PROXY_LANG_MAP
@@ -29,6 +31,7 @@ class ChatGPTProxyService(TranslationService):
             "text": text,
             "source_language_code": source_code if source_lang.lower() != "auto" else -1,
             "target_language_code": target_code,
+            "share_id": str(uuid.uuid4()),
         }
 
         headers = {

@@ -160,7 +160,9 @@ class TestFileProcessor:
     def test_read_rpy_empty_result(self) -> None:
         """Test reading Ren'Py with no extractable content."""
         rpy_content = b"# Just comments\n# No dialogue"
-        result = FileProcessor.read_rpy(rpy_content, translate_dialogue=False, translate_strings=False)
+        result = FileProcessor.read_rpy(
+            rpy_content, translate_dialogue=False, translate_strings=False
+        )
         # Should return original content when no extraction
         assert result == "# Just comments\n# No dialogue"
 

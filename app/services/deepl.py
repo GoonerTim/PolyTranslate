@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import threading
 import time
 
 import requests
@@ -17,6 +18,11 @@ class DeepLService(TranslationService):
     FREE_API_URL = "https://api-free.deepl.com/v2/translate"
     PRO_API_URL = "https://api.deepl.com/v2/translate"
     UNOFFICIAL_API_URL = "https://www2.deepl.com/jsonrpc"
+
+    # Rate limiting for free API
+    _last_free_request_time: float = 0
+    _free_api_lock = threading.Lock()
+    _min_request_interval = 1.0  # Minimum 1 second between free API requests
 
     def __init__(self, api_key: str = "", is_free_plan: bool = True) -> None:
         """
@@ -108,29 +114,59 @@ class DeepLService(TranslationService):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         }
 
-        try:
-            response = requests.post(
-                self.UNOFFICIAL_API_URL, json=payload, headers=headers, timeout=30
-            )
-        except requests.RequestException as e:
-            raise ValueError(f"DeepL free API request failed: {e}") from e
+        # Retry logic with exponential backoff for rate limits
+        max_retries = 3
+        base_delay = 2.0  # Start with 2 seconds
 
-        if response.status_code == 200:
+        for attempt in range(max_retries + 1):
+            # Rate limiting: ensure minimum interval between requests
+            with self._free_api_lock:
+                current_time = time.time()
+                time_since_last_request = current_time - DeepLService._last_free_request_time
+                if time_since_last_request < self._min_request_interval:
+                    time.sleep(self._min_request_interval - time_since_last_request)
+                DeepLService._last_free_request_time = time.time()
+
             try:
-                result = response.json()
-                if result.get("result") and result["result"].get("translations"):
-                    translations = []
-                    for translation in result["result"]["translations"]:
-                        if translation.get("beams") and len(translation["beams"]) > 0:
-                            translated_text = translation["beams"][0].get(
-                                "postprocessed_sentence", ""
-                            )
-                            translations.append(translated_text)
-                    return " ".join(translations)
-                raise ValueError("Unexpected response format from DeepL free API")
-            except (KeyError, IndexError, TypeError) as e:
-                raise ValueError(f"Failed to parse DeepL free API response: {e}") from e
-        raise ValueError(f"DeepL free API HTTP error {response.status_code}: {response.text}")
+                response = requests.post(
+                    self.UNOFFICIAL_API_URL, json=payload, headers=headers, timeout=30
+                )
+            except requests.RequestException as e:
+                if attempt == max_retries:
+                    raise ValueError(f"DeepL free API request failed: {e}") from e
+                time.sleep(base_delay * (2**attempt))
+                continue
+
+            if response.status_code == 200:
+                try:
+                    result = response.json()
+                    if result.get("result") and result["result"].get("translations"):
+                        translations = []
+                        for translation in result["result"]["translations"]:
+                            if translation.get("beams") and len(translation["beams"]) > 0:
+                                translated_text = translation["beams"][0].get(
+                                    "postprocessed_sentence", ""
+                                )
+                                translations.append(translated_text)
+                        return " ".join(translations)
+                    raise ValueError("Unexpected response format from DeepL free API")
+                except (KeyError, IndexError, TypeError) as e:
+                    raise ValueError(f"Failed to parse DeepL free API response: {e}") from e
+
+            # Handle rate limiting (429) with exponential backoff
+            if response.status_code == 429:
+                if attempt < max_retries:
+                    delay = base_delay * (2**attempt)
+                    time.sleep(delay)
+                    continue
+                raise ValueError(
+                    "DeepL free API rate limit exceeded. Please try again later or use an API key."
+                )
+
+            # Other errors
+            raise ValueError(f"DeepL free API HTTP error {response.status_code}: {response.text}")
+
+        raise ValueError("DeepL free API: Maximum retries exceeded")
 
     def _split_sentences(self, text: str) -> list[str]:
         sentence_pattern = r"[.!?\"':;\u0964]\s+|\n+"

@@ -47,6 +47,7 @@ class MainWindow:
 
         self._current_file: str | None = None
         self._current_text: str = ""
+        self._original_text: str = ""  # Store original for comparison
         self._translations: dict[str, str] = {}
         self._is_translating: bool = False
 
@@ -186,9 +187,9 @@ class MainWindow:
         source_frame = ctk.CTkFrame(lang_inner, fg_color="transparent")
         source_frame.pack(fill="x", pady=(0, 5))
 
-        ctk.CTkLabel(
-            source_frame, text="From:", font=ctk.CTkFont(size=11, weight="bold")
-        ).pack(anchor="w", pady=(0, 3))
+        ctk.CTkLabel(source_frame, text="From:", font=ctk.CTkFont(size=11, weight="bold")).pack(
+            anchor="w", pady=(0, 3)
+        )
         source_langs = get_source_languages()
         self.source_lang_var = ctk.StringVar(value=self.settings.get_source_language())
         self.source_lang_menu = ctk.CTkOptionMenu(
@@ -206,9 +207,9 @@ class MainWindow:
         target_frame = ctk.CTkFrame(lang_inner, fg_color="transparent")
         target_frame.pack(fill="x")
 
-        ctk.CTkLabel(
-            target_frame, text="To:", font=ctk.CTkFont(size=11, weight="bold")
-        ).pack(anchor="w", pady=(0, 3))
+        ctk.CTkLabel(target_frame, text="To:", font=ctk.CTkFont(size=11, weight="bold")).pack(
+            anchor="w", pady=(0, 3)
+        )
         target_langs = get_target_languages()
         self.target_lang_var = ctk.StringVar(value=self.settings.get_target_language())
         self.target_lang_menu = ctk.CTkOptionMenu(
@@ -324,7 +325,6 @@ class MainWindow:
         self.progress.pack(fill="x")
 
     def _create_main_content(self) -> None:
-
         content = ctk.CTkFrame(self.root, corner_radius=0)
         content.grid(row=2, column=1, sticky="nsew", padx=0, pady=0)
 
@@ -540,7 +540,6 @@ class MainWindow:
         ).pack(side="right", padx=5)
 
     def _create_status_bar(self) -> None:
-
         status_frame = ctk.CTkFrame(self.root, height=35, corner_radius=0)
         status_frame.grid(row=3, column=0, columnspan=2, sticky="ew", padx=0, pady=0)
 
@@ -561,7 +560,6 @@ class MainWindow:
         self.status_label.pack(side="left", padx=5)
 
     def _apply_settings(self) -> None:
-
         self.source_lang_var.set(self.settings.get_source_language())
         self.target_lang_var.set(self.settings.get_target_language())
 
@@ -570,7 +568,6 @@ class MainWindow:
             var.set(service_id in selected)
 
     def _on_file_selected(self, file_path: str) -> None:
-
         self._current_file = file_path
         self._status(f"File loaded: {Path(file_path).name}")
 
@@ -584,39 +581,32 @@ class MainWindow:
             self._current_text = ""
 
     def _open_file(self) -> None:
-
         self.file_drop._browse_files()
 
     def _open_settings(self) -> None:
-
         SettingsDialog(self.root, self.settings, on_save=self._on_settings_saved)
 
     def _on_settings_saved(self) -> None:
-
         self.translator.reload_services()
         self._status("Settings saved")
 
     def _open_history(self) -> None:
-
         self.results_tabview.set("📜 History")
         self._refresh_history()
 
     def _on_history_select(self, entry: dict[str, Any]) -> None:
-
         self._translations = entry.get("translations", {})
+        self._original_text = entry.get("source_text", "")  # Load original text
         self._update_results()
         # Switch to results tab to show the loaded translations
         self.results_tabview.set("📝 Results")
         self._status("History entry loaded")
 
     def _open_glossary(self) -> None:
-
         self.results_tabview.set("📚 Glossary")
         self._refresh_glossary()
 
-
     def _toggle_theme(self) -> None:
-
         current = self.settings.get_theme()
         new_theme = "light" if current == "dark" else "dark"
         self.settings.set_theme(new_theme)
@@ -626,11 +616,9 @@ class MainWindow:
         self.theme_button.configure(text=theme_icon)
 
     def _get_selected_services(self) -> list[str]:
-
         return [service_id for service_id, var in self.service_vars.items() if var.get()]
 
     def _start_translation(self) -> None:
-
         if self._is_translating:
             return
 
@@ -669,9 +657,11 @@ class MainWindow:
         thread.start()
 
     def _run_translation(self, services: list[str]) -> None:
-
         source_lang = self.source_lang_var.get()
         target_lang = self.target_lang_var.get()
+
+        # Store original text for comparison
+        self._original_text = self._current_text
 
         # Auto-detect language if needed
         if source_lang == "auto":
@@ -715,7 +705,6 @@ class MainWindow:
             self.root.after(0, lambda err=str(e): self._on_translation_error(err))
 
     def _on_translation_complete(self) -> None:
-
         self._is_translating = False
         self.translate_button.configure(state="normal")
         self.compare_button.configure(state="normal")
@@ -725,7 +714,6 @@ class MainWindow:
         self._update_results()
 
     def _on_translation_error(self, error: str) -> None:
-
         self._is_translating = False
         self.translate_button.configure(state="normal")
         self.progress.reset()
@@ -804,7 +792,7 @@ class MainWindow:
             )
             save_btn.pack(side="right", padx=5)
 
-            # Text box with nice styling (scrollable and copyable, but read-only)
+            # Text box with nice styling (scrollable, copyable, and EDITABLE)
             text_box = ctk.CTkTextbox(
                 tab,
                 wrap="word",
@@ -814,16 +802,25 @@ class MainWindow:
             )
             text_box.pack(fill="both", expand=True, padx=10, pady=(0, 10))
             text_box.insert("1.0", translation)
-            # Make read-only but keep text selectable for copying
+            # Keep editable - users can modify the translation
             text_box.configure(state="normal")
-            # Prevent editing while allowing selection and copying
-            self._make_textbox_readonly(text_box)
+
+            # Store reference to update translation on edit
+            def on_text_change(event: Any = None, svc: str = service, tb: Any = text_box) -> None:
+                self._translations[svc] = tb.get("1.0", "end-1c")
+
+            text_box._textbox.bind(
+                "<<Modified>>",
+                lambda e, tb=text_box: (  # type: ignore[attr-defined]
+                    on_text_change() if tb._textbox.edit_modified() else None,  # type: ignore[attr-defined]
+                    tb._textbox.edit_modified(False),  # type: ignore[attr-defined]
+                ),
+            )
 
         # Update comparison tab
         self._update_comparison_tab()
 
     def _save_translation(self, text: str, service: str) -> None:
-
         from tkinter import filedialog
 
         # Determine extension based on original file
@@ -850,7 +847,6 @@ class MainWindow:
                 self._status(f"Error saving: {e}")
 
     def _copy_to_clipboard(self, text: str) -> None:
-
         self.root.clipboard_clear()
         self.root.clipboard_append(text)
         self._status("Copied to clipboard")
@@ -882,24 +878,32 @@ class MainWindow:
         scroll_frame = ctk.CTkScrollableFrame(comparison_tab)
         scroll_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Calculate grid layout
-        num_services = len(self._translations)
+        # Calculate grid layout - add 1 for original text
+        num_services = len(self._translations) + (1 if self._original_text else 0)
         columns = min(3, num_services)
 
         # Configure grid
         for i in range(columns):
             scroll_frame.grid_columnconfigure(i, weight=1, uniform="col")
 
-        # Create comparison panels
+        # Add original text panel first (if available)
+        idx = 0
+        if self._original_text:
+            panel = self._create_comparison_panel(
+                scroll_frame, "original", self._original_text, service_icons, is_original=True
+            )
+            panel.grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
+            idx = 1
+
+        # Create comparison panels for translations
         services = list(self._translations.items())
-        for idx, (service, translation) in enumerate(services):
+        for service, translation in services:
             row = idx // columns
             col = idx % columns
 
-            panel = self._create_comparison_panel(
-                scroll_frame, service, translation, service_icons
-            )
+            panel = self._create_comparison_panel(scroll_frame, service, translation, service_icons)
             panel.grid(row=row, column=col, padx=8, pady=8, sticky="nsew")
+            idx += 1
 
     def _create_comparison_panel(
         self,
@@ -907,17 +911,31 @@ class MainWindow:
         service: str,
         text: str,
         service_icons: dict[str, str],
+        is_original: bool = False,
     ) -> ctk.CTkFrame:
         panel = ctk.CTkFrame(parent, corner_radius=12)
 
         # Service name header with icon
-        icon = service_icons.get(service, "•")
+        if is_original:
+            icon = "📄"
+            display_name = "ORIGINAL"
+            # Use distinct color for original
+            fg_color = ("#10b981", "#34d399")
+        else:
+            icon = service_icons.get(service, "•")
+            display_name = service.upper()
+            fg_color = ("#2563eb", "#1e40af")
+
+        header_frame = ctk.CTkFrame(panel, fg_color="transparent")
+        header_frame.pack(fill="x", padx=10, pady=(10, 5))
+
         header = ctk.CTkLabel(
-            panel,
-            text=f"{icon} {service.upper()}",
+            header_frame,
+            text=f"{icon} {display_name}",
             font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=fg_color,
         )
-        header.pack(fill="x", padx=10, pady=(10, 5))
+        header.pack(anchor="w")
 
         # Stats
         stats_text = f"📊 {len(text):,} chars  •  {len(text.split()):,} words"
@@ -929,7 +947,7 @@ class MainWindow:
         )
         stats.pack(fill="x", padx=10, pady=(0, 5))
 
-        # Text area (scrollable and copyable)
+        # Text area (scrollable, copyable, and EDITABLE for translations)
         text_box = ctk.CTkTextbox(
             panel,
             wrap="word",
@@ -939,16 +957,31 @@ class MainWindow:
         )
         text_box.pack(fill="both", expand=True, padx=10, pady=5)
         text_box.insert("1.0", text)
-        # Keep normal state to allow text selection and copying
-        text_box.configure(state="normal")
-        # Prevent editing while allowing selection and copying
-        self._make_textbox_readonly(text_box)
+
+        if is_original:
+            # Original text is read-only
+            text_box.configure(state="disabled")
+        else:
+            # Translations are editable
+            text_box.configure(state="normal")
+
+            # Update translation on edit
+            def on_text_change(event: Any = None) -> None:
+                self._translations[service] = text_box.get("1.0", "end-1c")
+
+            text_box._textbox.bind(
+                "<<Modified>>",
+                lambda e: (  # type: ignore[attr-defined]
+                    on_text_change() if text_box._textbox.edit_modified() else None,  # type: ignore[attr-defined]
+                    text_box._textbox.edit_modified(False),  # type: ignore[attr-defined]
+                ),
+            )
 
         # Copy button
         copy_btn = ctk.CTkButton(
             panel,
             text="📋 Copy",
-            command=lambda t=text: self._copy_to_clipboard(t),
+            command=lambda: self._copy_to_clipboard(text_box.get("1.0", "end-1c")),
             width=100,
             height=30,
             corner_radius=8,
@@ -959,15 +992,14 @@ class MainWindow:
         return panel
 
     def _show_comparison(self) -> None:
-
         if self._translations:
             # Switch to comparison tab
             self.results_tabview.set("📊 Comparison")
 
     def _clear_all(self) -> None:
-
         self._current_file = None
         self._current_text = ""
+        self._original_text = ""
         self._translations = {}
         self.file_drop.clear()
         self.progress.reset()
@@ -1204,7 +1236,7 @@ class MainWindow:
 
     def _clear_glossary(self) -> None:
         for original_entry, _replacement_entry in self.glossary_entry_widgets:
-            if hasattr(original_entry, 'master'):
+            if hasattr(original_entry, "master"):
                 original_entry.master.destroy()  # type: ignore[union-attr]
         self.glossary_entry_widgets.clear()
         self._add_glossary_row()
@@ -1212,6 +1244,7 @@ class MainWindow:
 
     def _make_textbox_readonly(self, textbox: ctk.CTkTextbox) -> None:
         """Make textbox read-only while keeping text selectable and copyable."""
+
         def on_key(event: Any) -> str:
             # Allow Ctrl+C, Ctrl+A, and navigation keys
             if event.state & 0x0004 and event.keysym in ("c", "a", "C", "A"):  # Ctrl key
@@ -1233,16 +1266,13 @@ class MainWindow:
         textbox._textbox.bind("<Key>", on_key)  # type: ignore[attr-defined]
 
     def _status(self, message: str) -> None:
-
         self.status_label.configure(text=message)
 
     def _on_close(self) -> None:
-
         # Save window geometry
         self.settings.set_window_geometry(self.root.geometry())
         self.settings.save()
         self.root.destroy()
 
     def run(self) -> None:
-
         self.root.mainloop()

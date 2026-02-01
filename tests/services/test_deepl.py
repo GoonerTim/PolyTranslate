@@ -203,3 +203,55 @@ class TestDeepLService:
         with pytest.raises(ValueError) as exc_info:
             service.translate("Hello", "en", "ru")
         assert "Unexpected response format" in str(exc_info.value)
+
+    @responses.activate
+    def test_free_api_rate_limit_retry_success(self) -> None:
+        """Test that 429 rate limit errors trigger retry and succeed."""
+        # First request: rate limit
+        responses.add(
+            responses.POST,
+            "https://www2.deepl.com/jsonrpc",
+            json={"code": 429, "message": "Too many requests"},
+            status=429,
+        )
+        # Second request: success
+        free_response = {
+            "result": {
+                "translations": [
+                    {
+                        "beams": [
+                            {"postprocessed_sentence": "Привет, мир!"},
+                        ]
+                    }
+                ]
+            }
+        }
+        responses.add(
+            responses.POST,
+            "https://www2.deepl.com/jsonrpc",
+            json=free_response,
+            status=200,
+        )
+
+        service = DeepLService(api_key="")
+        result = service.translate("Hello, world!", "en", "ru")
+        assert "Привет, мир!" in result
+        assert len(responses.calls) == 2  # Two requests were made
+
+    @responses.activate
+    def test_free_api_rate_limit_max_retries_exceeded(self) -> None:
+        """Test that exceeding max retries raises appropriate error."""
+        # All requests return 429
+        for _ in range(4):  # Initial + 3 retries
+            responses.add(
+                responses.POST,
+                "https://www2.deepl.com/jsonrpc",
+                json={"code": 429, "message": "Too many requests"},
+                status=429,
+            )
+
+        service = DeepLService(api_key="")
+        with pytest.raises(ValueError) as exc_info:
+            service.translate("Hello", "en", "ru")
+        assert "rate limit exceeded" in str(exc_info.value).lower()
+        assert len(responses.calls) == 4  # Initial + 3 retries

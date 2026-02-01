@@ -6,12 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **PolyTranslate** - Modern desktop translation application with beautiful UI and support for 9 translation services (DeepL FREE, Google FREE, Yandex FREE, OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI) and 9 file formats (TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, MD, Ren'Py). Built with Python 3.10+ and CustomTkinter GUI.
 
-### Key Features (v2.1)
+### Key Features (v2.2)
 - **🆓 FREE Translation**: DeepL, Google, and Yandex work without API keys using unofficial public APIs
 - **🎨 Modern UI**: Completely redesigned interface with gradients, icons, animations, and card-based layout
 - **📑 Tabbed Interface**: All features in one window - Results, Comparison, History, Glossary tabs
+- **✏️ Editable Translations**: All translation text areas are fully editable with auto-save
+- **📄 Original Comparison**: View source text alongside translations in comparison tab
 - **🚀 Fast & Parallel**: Multi-threaded translation with real-time progress tracking
-- **📊 Service Comparison**: Compare translations from multiple services side-by-side in grid layout
+- **📊 Service Comparison**: Compare original + translations from multiple services side-by-side in grid layout
 
 ## Common Commands
 
@@ -104,6 +106,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 - If API key exists: tries paid API first, falls back to free API on failure
 - If no API key: uses free API directly
 - `is_configured()` always returns `True` for these services
+- **DeepL Rate Limiting**: Uses class-level lock and timestamp to enforce 1-second minimum interval between free API requests; automatically retries with exponential backoff (2s, 4s, 8s) on HTTP 429 errors
 
 ### Key Architectural Decisions
 
@@ -119,19 +122,26 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 6. **Free API Fallback**: DeepL, Google, and Yandex services implement automatic fallback to unofficial free APIs when API key is missing or paid API fails. This provides zero-configuration translation capability.
 
-### Modern UI Design (v2.1)
+### Modern UI Design (v2.2)
 
 **Design Philosophy**: Clean, minimal code with modern visual design. Docstrings removed from internal methods for brevity.
 
-**Tabbed Interface Architecture (v2.1)**:
+**Tabbed Interface Architecture (v2.2)**:
 - **Single Window Design**: All features accessible from main window - no popup dialogs
 - **4 Main Tabs**:
   - 📝 **Results**: Individual translations from each service (with nested service tabs)
-  - 📊 **Comparison**: Side-by-side grid view of all translations (up to 3 columns)
+    - **Editable**: All text areas fully editable with auto-save on modification
+    - Changes synchronized via `<<Modified>>` event binding
+  - 📊 **Comparison**: Side-by-side grid view with original text + translations (up to 3 columns)
+    - **Original Text Panel**: First panel shows source text (📄 icon, green color, read-only)
+    - **Editable Translations**: Edit any translation directly in comparison view
+    - Grid layout adapts dynamically (original + N translations)
   - 📜 **History**: Translation history with beautiful card layout
+    - Loads both translations and original text when selected
   - 📚 **Glossary**: Integrated glossary editor with real-time updates
 - **Seamless Navigation**: One-click switching between all features
 - **State Preservation**: Each tab maintains its state when switching
+- **Edit Tracking**: Text modifications automatically update translation dictionary
 
 **Key UI Components**:
 - **Card-based Layout**: Modern rounded corners, shadows, and spacing
@@ -200,7 +210,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 ### Testing Strategy
 
-**248 tests, 90% coverage** (GUI excluded)
+**249 tests, 89% coverage** (GUI excluded)
 
 - **Service Tests**: Mock HTTP with `responses` library. Example pattern:
   ```python
@@ -288,7 +298,7 @@ Runtime config (gitignored):
 
 - **API Key Security**: Never commit `config.json`. Keys stored locally only.
 
-- **Coverage Target**: 70% minimum (pyproject.toml), currently 90%. GUI excluded from coverage (`app/gui/*` omitted).
+- **Coverage Target**: 70% minimum (pyproject.toml), currently 89%. GUI excluded from coverage (`app/gui/*` omitted).
 
 - **Ruff Configuration**: Line length 100, ignores E501 (line too long), uses modern Python features (UP rules).
 
@@ -296,33 +306,47 @@ Runtime config (gitignored):
 
 - **UI Design**: Modern card-based layout with emoji icons. Color scheme uses blue (#2563eb) for primary, green (#10b981) for success, red (#ef4444) for errors.
 
-## UI Workflow (v2.1)
+## UI Workflow (v2.2)
 
 ### Navigation Flow
 1. User clicks menu button (📜 History, 📚 Glossary) → switches to that tab
-2. "📊 Compare Results" button → switches to Comparison tab
-3. Clicking history card → loads translation and switches to Results tab
+2. "📊 Compare" button → switches to Comparison tab
+3. Clicking history card → loads translation + original text and switches to Results tab
 4. All tabs accessible via direct clicking on tab headers
 
 ### Tab Content Management
 - **Results Tab**: Dynamically creates service subtabs when translations complete
+  - Text areas are editable with auto-save on modification
+  - Edit tracking via `<<Modified>>` event binding
 - **Comparison Tab**: Regenerates grid layout when translations update
+  - Shows original text (if available) as first panel
+  - Translation panels are editable
+  - Grid adapts to N+1 panels (original + translations)
 - **History Tab**: Refreshes card list when history changes
 - **Glossary Tab**: Maintains entry widgets state, saves on button click
 
 ### State Synchronization
 - Translation results (`_translations` dict) shared across Results and Comparison tabs
-- History loads translations into Results tab on selection
+- Original text (`_original_text`) stored before translation and loaded from history
+- History loads both translations and original text into Results tab on selection
+- Text edits update `_translations` dictionary in real-time
 - Glossary saves trigger translator reload for immediate effect
-- Clear button resets translations and switches back to Results tab
+- Clear button resets translations, original text, and switches back to Results tab
+
+### Edit Features
+- **Editable Text Areas**: All translation textboxes in normal state (not read-only)
+- **Auto-save**: Modifications tracked via Tkinter's `<<Modified>>` event
+- **Original Protection**: Original text panel is disabled (read-only) in Comparison tab
+- **Copy with Edits**: Copy button uses current content (including user edits)
 
 ## Known Quirks
 
 1. **Free API Reliability**: DeepL, Google, and Yandex free APIs are unofficial and may:
-   - Have undocumented rate limits
+   - Have undocumented rate limits (DeepL has built-in rate limiting and retry logic)
    - Change without notice (breaking compatibility)
    - Be blocked in some regions
    - Paid API keys recommended for production use
+   - **DeepL Rate Limiting**: Automatically throttles requests (1 second minimum interval) and retries with exponential backoff (2s, 4s, 8s) on 429 errors
 
 2. **Ren'Py Processing**: `read_rpy()` extracts dialogue using regex. Reconstruction in `reconstruct_rpy()` uses default parameters in closures to avoid variable binding issues (B007 lint rule).
 
