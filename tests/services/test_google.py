@@ -114,3 +114,18 @@ class TestGoogleService:
         with pytest.raises(ValueError) as exc_info:
             service.translate("Hello", "en", "ru")
         assert "Google free API" in str(exc_info.value)
+
+    @responses.activate
+    def test_translate_free_api_unexpected_format(self) -> None:
+        """Test handling unexpected response format from free API."""
+        responses.add(
+            responses.GET,
+            "https://translate.googleapis.com/translate_a/single",
+            json={"unexpected": "format"},
+            status=200,
+        )
+
+        service = GoogleService(api_key="")
+        with pytest.raises(ValueError) as exc_info:
+            service.translate("Hello", "en", "ru")
+        assert "parse" in str(exc_info.value).lower() or "unexpected" in str(exc_info.value).lower()

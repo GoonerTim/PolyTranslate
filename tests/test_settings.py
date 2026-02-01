@@ -166,3 +166,56 @@ class TestSettings:
         # But also have defaults for missing keys
         assert settings.get_chunk_size() == 1000
         assert settings.get_api_keys() is not None
+
+    def test_load_invalid_json(self, temp_dir: Path) -> None:
+        """Test loading settings from invalid JSON."""
+        config_path = temp_dir / "config.json"
+        # Write invalid JSON
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write("{invalid json")
+
+        # Should fall back to defaults
+        settings = Settings(config_path)
+        assert settings.get_theme() == "dark"
+        assert settings.get_chunk_size() == 1000
+
+    def test_save_error_handling(self, temp_dir: Path) -> None:
+        """Test save error handling with invalid path."""
+        # Use path that cannot be written to
+        config_path = temp_dir / "nonexistent" / "subdir" / "config.json"
+        settings = Settings(config_path)
+        settings.set_theme("light")
+
+        with pytest.raises(ValueError, match="Failed to save settings"):
+            settings.save()
+
+    def test_set_method(self, temp_dir: Path) -> None:
+        """Test generic set method."""
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+
+        settings.set("custom_key", "custom_value")
+        assert settings.get("custom_key") == "custom_value"
+
+    def test_set_api_key_without_existing_keys(self, temp_dir: Path) -> None:
+        """Test setting API key when api_keys dict doesn't exist."""
+        config_path = temp_dir / "config.json"
+        # Create settings without api_keys
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump({"theme": "dark"}, f)
+
+        settings = Settings(config_path)
+        settings.set_api_key("deepl", "new_key")
+        assert settings.get_api_key("deepl") == "new_key"
+
+    def test_window_geometry(self, temp_dir: Path) -> None:
+        """Test window geometry settings."""
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+
+        # Test default
+        assert settings.get_window_geometry() == "1200x800"
+
+        # Test set
+        settings.set_window_geometry("1920x1080")
+        assert settings.get_window_geometry() == "1920x1080"

@@ -255,7 +255,7 @@ class MainWindow:
 
         # Create checkboxes in 2-column grid
         services_list = list(self.SERVICES.items())
-        for idx, (service_id, service_name) in enumerate(services_list):
+        for _idx, (service_id, service_name) in enumerate(services_list):
             var = ctk.BooleanVar(value=service_id in selected)
             self.service_vars[service_id] = var
             icon = service_icons.get(service_id, "•")
@@ -1214,9 +1214,8 @@ class MainWindow:
         """Make textbox read-only while keeping text selectable and copyable."""
         def on_key(event: Any) -> str:
             # Allow Ctrl+C, Ctrl+A, and navigation keys
-            if event.state & 0x0004:  # Ctrl key
-                if event.keysym in ("c", "a", "C", "A"):
-                    return "continue"
+            if event.state & 0x0004 and event.keysym in ("c", "a", "C", "A"):  # Ctrl key
+                return "continue"
             if event.keysym in (
                 "Left",
                 "Right",

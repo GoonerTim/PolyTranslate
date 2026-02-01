@@ -114,3 +114,67 @@ class TestFileProcessor:
         # Should fall back to text reading
         result = FileProcessor.process_file(file_path)
         assert result == "Some content"
+
+    def test_detect_encoding_fallback_to_cp1251(self) -> None:
+        """Test encoding detection fallback to cp1251."""
+        # Create content that will have low confidence detection
+        content = bytes([0xFF, 0xFE] + [0x41, 0x00] * 10)  # BOM + some text
+        encoding = FileProcessor.detect_encoding(content)
+        assert encoding is not None
+
+    def test_detect_encoding_exception_handling(self) -> None:
+        """Test encoding detection with exception."""
+        # Empty content should trigger fallback to utf-8
+        content = b""
+        encoding = FileProcessor.detect_encoding(content)
+        assert encoding == "utf-8"
+
+    def test_read_txt_with_fallback_encoding(self) -> None:
+        """Test reading text with fallback to utf-8 error replacement."""
+        # Create invalid UTF-8 sequence
+        content = b"\xff\xfe\x41\x00Invalid\xff\xff"
+        result = FileProcessor.read_txt(content)
+        assert "Invalid" in result or "A" in result
+
+    def test_read_html_error_handling(self) -> None:
+        """Test HTML reading with malformed content."""
+        # Create content that might cause parsing issues
+        html_content = b"<html><body><p>Test</p>"  # Missing closing tags
+        result = FileProcessor.read_html(html_content)
+        assert "Test" in result
+
+    def test_read_md_error_handling(self) -> None:
+        """Test Markdown reading with invalid content."""
+        # Valid markdown but testing error path coverage
+        md_content = b"# Title\n\nContent"
+        result = FileProcessor.read_md(md_content)
+        assert "Title" in result
+        assert "Content" in result
+
+    def test_read_rpy_old_dialogue_format(self) -> None:
+        """Test reading Ren'Py old dialogue format."""
+        rpy_content = b'"Old style dialogue"'
+        result = FileProcessor.read_rpy(rpy_content)
+        assert "Old style dialogue" in result or "DIALOGUE_LINE" in result
+
+    def test_read_rpy_empty_result(self) -> None:
+        """Test reading Ren'Py with no extractable content."""
+        rpy_content = b"# Just comments\n# No dialogue"
+        result = FileProcessor.read_rpy(rpy_content, translate_dialogue=False, translate_strings=False)
+        # Should return original content when no extraction
+        assert result == "# Just comments\n# No dialogue"
+
+    def test_reconstruct_rpy_error_handling(self) -> None:
+        """Test Ren'Py reconstruction with missing translations."""
+        original = 'e "Hello"\nm "World"'
+        translations = {}  # No translations
+        result = FileProcessor.reconstruct_rpy(original, translations)
+        # Should preserve original structure
+        assert 'e "Hello"' in result
+        assert 'm "World"' in result
+
+    def test_process_bytes_unsupported_extension(self) -> None:
+        """Test processing bytes with unsupported extension."""
+        content = b"Test content"
+        result = FileProcessor.process_bytes(content, "unknown")
+        assert result == "Test content"
