@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
-
 import requests
 
 from app.config.languages import CHATGPT_PROXY_LANG_MAP
@@ -19,10 +17,6 @@ class ChatGPTProxyService(TranslationService):
         """Initialize ChatGPT Proxy service."""
         pass
 
-    def _generate_uuid(self) -> str:
-        """Generate a UUID for the request."""
-        return str(uuid.uuid4())
-
     def translate(self, text: str, source_lang: str, target_lang: str) -> str:
         """Translate text using ChatGPT Proxy."""
         source_code = CHATGPT_PROXY_LANG_MAP.get(source_lang.lower(), -1)
@@ -35,7 +29,6 @@ class ChatGPTProxyService(TranslationService):
             "text": text,
             "source_language_code": source_code if source_lang.lower() != "auto" else -1,
             "target_language_code": target_code,
-            "share_id": self._generate_uuid(),
         }
 
         headers = {

@@ -95,16 +95,3 @@ class TestChatGPTProxyService:
         with pytest.raises(ValueError) as exc_info:
             service.translate("Hello", "en", "xyz")
         assert "does not support" in str(exc_info.value)
-
-    def test_uuid_generation(self) -> None:
-        """Test that UUID is generated correctly."""
-        service = ChatGPTProxyService()
-        uuid1 = service._generate_uuid()
-        uuid2 = service._generate_uuid()
-
-        # Should be valid UUIDs
-        assert len(uuid1) == 36
-        assert uuid1.count("-") == 4
-
-        # Should be unique
-        assert uuid1 != uuid2
