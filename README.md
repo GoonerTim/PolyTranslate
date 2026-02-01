@@ -3,11 +3,11 @@
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-226%20passed-brightgreen.svg)
-![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-230%20passed-brightgreen.svg)
+![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-**Powerful desktop translation application with support for multiple translation services and file formats**
+**Modern desktop translation application with beautiful UI and support for multiple translation services**
 
 [Features](#features) • [Installation](#installation) • [Usage](#usage) • [Supported Services](#supported-services) • [Development](#development)
 
@@ -17,20 +17,35 @@
 
 ## 📋 Overview
 
-PolyTranslate is a feature-rich desktop translation application built with Python and CustomTkinter. It allows you to translate text and documents using multiple translation APIs simultaneously, compare results, and manage terminology with a built-in glossary.
+PolyTranslate is a feature-rich desktop translation application with a **stunning modern UI** built with Python and CustomTkinter. It allows you to translate text and documents using multiple translation APIs simultaneously, compare results, and manage terminology with a built-in glossary.
 
 ### ✨ Key Features
 
-- **9 Translation Services**: DeepL, Google, Yandex, OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI
+- **9 Translation Services**: DeepL, Google (FREE), Yandex (FREE), OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI
 - **9 File Formats**: TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, Markdown, Ren'Py scripts
+- **🆓 FREE Services**: Google and Yandex work without API keys using unofficial APIs
+- **🎨 Modern UI**: Beautiful redesigned interface with gradients, icons, and smooth animations
 - **Parallel Processing**: Translate large texts in chunks with multiple workers
 - **Service Comparison**: Compare translations from different services side-by-side
 - **Glossary Management**: Maintain custom terminology dictionaries
 - **Translation History**: Track and review past translations
 - **Auto Language Detection**: Automatically detect source language
-- **Dark/Light Themes**: Customizable UI themes
-- **Drag & Drop**: Easy file loading interface
-- **Progress Tracking**: Real-time translation progress visualization
+- **Dark/Light Themes**: Toggle between beautiful light and dark themes
+- **Drag & Drop**: Easy file loading with visual feedback
+- **Progress Tracking**: Real-time translation progress with modern progress bar
+
+### 🎨 Modern Interface
+
+PolyTranslate features a completely redesigned modern UI with:
+
+- **Beautiful Design**: Card-based layout with gradients and smooth animations
+- **Icon Navigation**: Emoji-based menu system for intuitive navigation
+- **Visual Feedback**: Hover effects, color-coded states, and smooth transitions
+- **Service Icons**: Each translation service has a unique emoji identifier
+- **Modern Progress Bar**: Real-time progress with percentage and status
+- **Drag & Drop**: Visual feedback when dragging files (green highlight, success/error states)
+- **Empty States**: Beautiful placeholder screens with helpful messages
+- **Responsive Layout**: Adapts to different window sizes
 
 ---
 
@@ -87,16 +102,18 @@ python main.py
 
 ### Configuration
 
-On first run, configure API keys in **Settings**:
+**Start translating immediately** with Google and Yandex (no API keys required)!
 
+For other services, configure API keys in **Settings**:
+
+- **Google Translate**: ✅ **Works FREE without API key** (or use Google Cloud API for higher limits)
+- **Yandex Translate**: ✅ **Works FREE without API key** (or use Yandex Cloud API for higher limits)
+- **ChatGPT Proxy**: ✅ **No API key required** (uses proxy service)
 - **DeepL**: Get free/pro API key from [deepl.com](https://www.deepl.com/pro-api)
-- **Google**: Set up Google Cloud Translation API
-- **Yandex**: Register at [yandex.com/dev/translate](https://yandex.com/dev/translate/)
 - **OpenAI**: Get API key from [platform.openai.com](https://platform.openai.com)
 - **Claude AI**: Get API key from [console.anthropic.com](https://console.anthropic.com)
 - **Groq**: Register at [groq.com](https://groq.com)
 - **OpenRouter**: Get key from [openrouter.ai](https://openrouter.ai)
-- **ChatGPT Proxy**: No API key required (uses proxy service)
 - **LocalAI**: Configure your local server URL
 
 ### File Translation
@@ -120,17 +137,21 @@ Supported formats:
 
 | Service | API Key Required | Features | Languages |
 |---------|-----------------|----------|-----------|
+| **Google Translate** | 🆓 **Optional** | Free API, comprehensive, reliable | 100+ |
+| **Yandex Translate** | 🆓 **Optional** | Free API, good for Cyrillic | 90+ |
+| **ChatGPT Proxy** | ❌ No | Free, no registration | 100+ |
 | **DeepL** | ✅ Yes | High quality, fast | 30+ |
-| **Google Translate** | ✅ Yes | Comprehensive, reliable | 100+ |
-| **Yandex Translate** | ✅ Yes | Good for Cyrillic | 90+ |
 | **OpenAI GPT** | ✅ Yes | Context-aware, natural | All major |
 | **Claude AI** | ✅ Yes | High quality, detailed | All major |
 | **Groq** | ✅ Yes | Fast inference | All major |
 | **OpenRouter** | ✅ Yes | Multiple models | All major |
-| **ChatGPT Proxy** | ❌ No | Free, no registration | 100+ |
 | **LocalAI** | ❌ No* | Self-hosted, private | Depends on model |
 
 *Requires local server setup
+
+### 🆓 Free Services
+
+**Google** and **Yandex** now work without API keys! The application uses their unofficial public APIs when no API key is provided. If you have an API key, it will be used with automatic fallback to the free API if it fails.
 
 ---
 
@@ -143,10 +164,10 @@ polytranslate/
 ├── app/
 │   ├── config/          # Configuration management
 │   ├── core/            # Core translation logic
-│   ├── gui/             # CustomTkinter UI
+│   ├── gui/             # Modern CustomTkinter UI
 │   ├── services/        # Translation service implementations
 │   └── utils/           # Utilities (glossary, etc.)
-├── tests/               # Test suite (226 tests, 90% coverage)
+├── tests/               # Test suite (230 tests, 89% coverage)
 ├── main.py              # Application entry point
 ├── requirements.txt     # Production dependencies
 ├── requirements-dev.txt # Development dependencies
@@ -233,13 +254,14 @@ class TranslationService(ABC):
 
 ## 📊 Testing
 
-- **Unit Tests**: 226 tests covering all core modules
+- **Unit Tests**: 230 tests covering all core modules
 - **Integration Tests**: End-to-end workflow testing
-- **Coverage**: 90% code coverage
+- **Coverage**: 89% code coverage
 - **CI/CD Ready**: All tests automated with pytest
 
 Test categories:
 - Translation service mocking (using `responses` library)
+- Free API fallback mechanisms
 - File format processing
 - Parallel translation
 - Error handling

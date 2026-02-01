@@ -1,15 +1,9 @@
-"""File drop zone widget for drag and drop file handling."""
-
 from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import customtkinter as ctk
-
-if TYPE_CHECKING:
-    pass
 
 try:
     from tkinterdnd2 import DND_FILES, TkinterDnD
@@ -62,62 +56,64 @@ class FileDropZone(ctk.CTkFrame):
         self.on_file_drop = on_file_drop
         self._current_file: str | None = None
 
-        # Configure the frame
+        # Configure the frame with modern styling
         self.configure(
-            corner_radius=10,
-            border_width=2,
-            border_color=("gray70", "gray30"),
+            corner_radius=15,
+            border_width=3,
+            border_color=("#e5e7eb", "#374151"),
         )
-
-        # Create inner content
         self._create_widgets()
-
-        # Setup drag and drop if available
         self._setup_dnd()
 
     def _create_widgets(self) -> None:
-        """Create the widgets inside the drop zone."""
-        # Icon label
         self.icon_label = ctk.CTkLabel(
             self,
-            text="",
-            font=ctk.CTkFont(size=40),
+            text="📎",
+            font=ctk.CTkFont(size=50),
         )
-        self.icon_label.pack(pady=(20, 5))
+        self.icon_label.pack(pady=(25, 5))
 
-        # Main text
         self.text_label = ctk.CTkLabel(
             self,
-            text="Drag & Drop files here",
-            font=ctk.CTkFont(size=14, weight="bold"),
+            text="✨ Drag & Drop files here",
+            font=ctk.CTkFont(size=16, weight="bold"),
         )
         self.text_label.pack(pady=5)
 
-        # Supported formats
-        formats = ", ".join(sorted(ext.upper().lstrip(".") for ext in self.SUPPORTED_EXTENSIONS))
+        self.subtitle_label = ctk.CTkLabel(
+            self,
+            text="or click the button below to browse",
+            font=ctk.CTkFont(size=12),
+            text_color=("gray50", "gray60"),
+        )
+        self.subtitle_label.pack(pady=2)
+
+        formats_short = "TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, MD, Ren'Py"
         self.formats_label = ctk.CTkLabel(
             self,
-            text=f"Supported: {formats}",
-            font=ctk.CTkFont(size=10),
-            text_color=("gray50", "gray60"),
+            text=f"📋 {formats_short}",
+            font=ctk.CTkFont(size=11),
+            text_color=("#2563eb", "#60a5fa"),
         )
         self.formats_label.pack(pady=5)
 
-        # Browse button
         self.browse_button = ctk.CTkButton(
             self,
-            text="Browse Files",
+            text="📂 Browse Files",
             command=self._browse_files,
-            width=120,
+            width=140,
+            height=38,
+            corner_radius=10,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=("#2563eb", "#1e40af"),
+            hover_color=("#1d4ed8", "#1e3a8a"),
         )
-        self.browse_button.pack(pady=10)
+        self.browse_button.pack(pady=12)
 
     def _setup_dnd(self) -> None:
-        """Setup drag and drop functionality."""
         if not DND_AVAILABLE:
             return
 
-        # Check if the root is a TkinterDnD.Tk
         root = self.winfo_toplevel()
         if hasattr(root, "drop_target_register"):
             try:
@@ -126,20 +122,15 @@ class FileDropZone(ctk.CTkFrame):
                 self.dnd_bind("<<DragEnter>>", self._on_drag_enter)
                 self.dnd_bind("<<DragLeave>>", self._on_drag_leave)
             except Exception:
-                # DnD not properly initialized
                 pass
 
     def _on_drop(self, event: object) -> None:
-        """Handle file drop event."""
         if hasattr(event, "data"):
-            # Parse the dropped file path
             file_path = str(event.data)  # type: ignore[attr-defined]
 
-            # Handle Windows paths with curly braces
             if file_path.startswith("{") and file_path.endswith("}"):
                 file_path = file_path[1:-1]
 
-            # Validate extension
             path = Path(file_path)
             if path.suffix.lower() in self.SUPPORTED_EXTENSIONS:
                 self._set_file(file_path)
@@ -149,19 +140,20 @@ class FileDropZone(ctk.CTkFrame):
         self._reset_appearance()
 
     def _on_drag_enter(self, event: object) -> None:
-        """Handle drag enter event."""
-        self.configure(border_color=("green", "lightgreen"))
+        self.configure(
+            border_color=("#10b981", "#34d399"), fg_color=("#d1fae5", "#064e3b")
+        )
+        self.icon_label.configure(text="⬇️")
 
     def _on_drag_leave(self, event: object) -> None:
-        """Handle drag leave event."""
         self._reset_appearance()
 
     def _reset_appearance(self) -> None:
-        """Reset the appearance to default."""
-        self.configure(border_color=("gray70", "gray30"))
+        self.configure(border_color=("#e5e7eb", "#374151"), fg_color=("gray86", "gray17"))
+        self.icon_label.configure(text="📎")
 
     def _browse_files(self) -> None:
-        """Open file browser dialog."""
+
         from tkinter import filedialog
 
         filetypes = [
@@ -183,24 +175,26 @@ class FileDropZone(ctk.CTkFrame):
             self._set_file(file_path)
 
     def _set_file(self, file_path: str) -> None:
-        """Set the current file and update display."""
         self._current_file = file_path
         path = Path(file_path)
 
-        # Update display
-        self.text_label.configure(text=path.name)
-        self.formats_label.configure(text=f"Size: {self._format_size(path.stat().st_size)}")
+        self.configure(border_color=("#10b981", "#34d399"))
+        self.icon_label.configure(text="✅")
+        self.text_label.configure(text=f"📄 {path.name}")
+        self.subtitle_label.configure(text="File loaded successfully!")
+        size_text = self._format_size(path.stat().st_size)
+        self.formats_label.configure(text=f"💾 Size: {size_text}")
 
-        # Call callback
         if self.on_file_drop:
             self.on_file_drop(file_path)
 
     def _show_error(self, message: str) -> None:
-        """Show an error message."""
+        self.configure(border_color=("#ef4444", "#dc2626"))
+        self.icon_label.configure(text="❌")
         self.text_label.configure(text=message)
+        self.subtitle_label.configure(text="Please try another file")
 
     def _format_size(self, size: int) -> str:
-        """Format file size in human readable format."""
         for unit in ["B", "KB", "MB", "GB"]:
             if size < 1024:
                 return f"{size:.1f} {unit}"
@@ -208,12 +202,12 @@ class FileDropZone(ctk.CTkFrame):
         return f"{size:.1f} TB"
 
     def get_file(self) -> str | None:
-        """Get the current file path."""
         return self._current_file
 
     def clear(self) -> None:
-        """Clear the current file."""
         self._current_file = None
-        self.text_label.configure(text="Drag & Drop files here")
-        formats = ", ".join(sorted(ext.upper().lstrip(".") for ext in self.SUPPORTED_EXTENSIONS))
-        self.formats_label.configure(text=f"Supported: {formats}")
+        self._reset_appearance()
+        self.text_label.configure(text="✨ Drag & Drop files here")
+        self.subtitle_label.configure(text="or click the button below to browse")
+        formats_short = "TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, MD, Ren'Py"
+        self.formats_label.configure(text=f"📋 {formats_short}")

@@ -83,13 +83,11 @@ class Translator:
                 is_free_plan=self.settings.get("deepl_plan", "free") == "free",
             )
 
-        # Yandex
-        if api_keys.get("yandex"):
-            self.services["yandex"] = YandexService(api_key=api_keys["yandex"])
+        # Yandex (always available - uses free API if no key)
+        self.services["yandex"] = YandexService(api_key=api_keys.get("yandex", ""))
 
-        # Google
-        if api_keys.get("google"):
-            self.services["google"] = GoogleService(api_key=api_keys["google"])
+        # Google (always available - uses free API if no key)
+        self.services["google"] = GoogleService(api_key=api_keys.get("google", ""))
 
         # OpenAI
         if api_keys.get("openai"):

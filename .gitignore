@@ -106,3 +106,6 @@ $RECYCLE.BIN/
 test_output/
 temp/
 tmp/
+
+# Agents
+CLAUDE.md

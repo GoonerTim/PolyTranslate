@@ -14,9 +14,9 @@ class TestYandexService:
     """Tests for YandexService class."""
 
     def test_not_configured_without_key(self) -> None:
-        """Test that service is not configured without API key."""
+        """Test that service is always configured (free API available)."""
         service = YandexService(api_key="")
-        assert service.is_configured() is False
+        assert service.is_configured() is True
 
     def test_configured_with_key(self) -> None:
         """Test that service is configured with API key."""
@@ -27,6 +27,11 @@ class TestYandexService:
         """Test getting service name."""
         service = YandexService(api_key="test_key")
         assert service.get_name() == "Yandex Translate"
+
+    def test_get_name_free(self) -> None:
+        """Test getting service name without API key (free mode)."""
+        service = YandexService(api_key="")
+        assert service.get_name() == "Yandex Translate (Free)"
 
     @responses.activate
     def test_translate_success(self, mock_yandex_response: dict[str, Any]) -> None:
@@ -61,8 +66,9 @@ class TestYandexService:
         assert request_body is not None
 
     @responses.activate
-    def test_translate_api_error(self) -> None:
-        """Test handling API error."""
+    def test_translate_api_error_fallback_to_free(self) -> None:
+        """Test handling API error with fallback to free API."""
+        # Mock paid API returning error
         responses.add(
             responses.POST,
             "https://translate.api.cloud.yandex.net/translate/v2/translate",
@@ -70,14 +76,45 @@ class TestYandexService:
             status=401,
         )
 
-        service = YandexService(api_key="invalid_key")
-        with pytest.raises(ValueError) as exc_info:
-            service.translate("Hello", "en", "ru")
-        assert "Yandex API error" in str(exc_info.value)
+        # Mock free API returning success
+        responses.add(
+            responses.POST,
+            "https://translate.yandex.net/api/v1/tr.json/translate",
+            json={"code": 200, "text": ["Привет"]},
+            status=200,
+        )
 
-    def test_translate_without_key(self) -> None:
-        """Test translation attempt without API key."""
+        service = YandexService(api_key="invalid_key")
+        result = service.translate("Hello", "en", "ru")
+        # Should fallback to free API and succeed
+        assert result == "Привет"
+
+    @responses.activate
+    def test_translate_with_free_api(self) -> None:
+        """Test translation using free API without API key."""
+        # Mock free API
+        responses.add(
+            responses.POST,
+            "https://translate.yandex.net/api/v1/tr.json/translate",
+            json={"code": 200, "text": ["Привет"]},
+            status=200,
+        )
+
+        service = YandexService(api_key="")
+        result = service.translate("Hello", "en", "ru")
+        assert result == "Привет"
+
+    @responses.activate
+    def test_translate_free_api_error(self) -> None:
+        """Test error handling when free API fails."""
+        responses.add(
+            responses.POST,
+            "https://translate.yandex.net/api/v1/tr.json/translate",
+            json={"code": 500, "message": "Server error"},
+            status=200,
+        )
+
         service = YandexService(api_key="")
         with pytest.raises(ValueError) as exc_info:
             service.translate("Hello", "en", "ru")
-        assert "not set" in str(exc_info.value)
+        assert "Yandex free API error" in str(exc_info.value)

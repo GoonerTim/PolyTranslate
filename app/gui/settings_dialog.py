@@ -63,8 +63,8 @@ class SettingsDialog(ctk.CTkToplevel):
 
         api_services = [
             ("deepl", "DeepL API Key"),
-            ("yandex", "Yandex Cloud API Key"),
-            ("google", "Google Cloud API Key"),
+            ("yandex", "Yandex Cloud API Key (Optional - works without key)"),
+            ("google", "Google Cloud API Key (Optional - works without key)"),
             ("openai", "OpenAI API Key"),
             ("openrouter", "OpenRouter API Key"),
             ("groq", "Groq API Key"),
@@ -73,6 +73,15 @@ class SettingsDialog(ctk.CTkToplevel):
 
         for key, label in api_services:
             self._create_api_entry(key, label)
+
+        # Info note about free services
+        info_label = ctk.CTkLabel(
+            self.scroll_frame,
+            text="ℹ️ Yandex and Google work without API keys using their free public APIs",
+            font=ctk.CTkFont(size=11),
+            text_color=("#2563eb", "#60a5fa"),
+        )
+        info_label.pack(pady=(5, 10))
 
         # DeepL Plan
         self._create_section_label("DeepL Settings")
