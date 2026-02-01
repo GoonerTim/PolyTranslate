@@ -1,10 +1,10 @@
-mm# PolyTranslate
+# PolyTranslate
 
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-249%20passed-brightgreen.svg)
-![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-268%20passed-brightgreen.svg)
+![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 **Modern desktop translation application with beautiful UI and support for multiple translation services**
@@ -19,6 +19,21 @@ mm# PolyTranslate
 
 PolyTranslate is a feature-rich desktop translation application with a **stunning modern UI** built with Python and CustomTkinter. It allows you to translate text and documents using multiple translation APIs simultaneously, compare results, and manage terminology with a built-in glossary.
 
+## 🆕 What's New in v2.3
+
+**🤖 AI-Powered Translation Evaluation**
+
+Analyze your translations with artificial intelligence! The new AI Evaluation feature:
+
+- **Rates each translation** with numerical scores (0-10) and detailed explanations
+- **Identifies the best translation** automatically with visual highlighting
+- **Generates an improved translation** combining the best aspects of all versions
+- **Works with any LLM** - OpenAI, Claude, Groq, or LocalAI
+- **Preserves Ren'Py structure** for game translation workflows
+- **Saves evaluations to history** for future reference
+
+Simply complete a translation, click "🤖 Evaluate All", and get instant AI-powered quality analysis!
+
 ### ✨ Key Features
 
 - **9 Translation Services**: DeepL (FREE), Google (FREE), Yandex (FREE), OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI
@@ -28,6 +43,7 @@ PolyTranslate is a feature-rich desktop translation application with a **stunnin
 - **📑 Tabbed Interface**: All features in one window - no popup dialogs
 - **✏️ Editable Translations**: Edit translations directly in the interface - all text areas are fully editable
 - **📄 Original Text Comparison**: Compare translations with source text side-by-side
+- **🤖 AI-Powered Evaluation**: Rate translation quality with scores (0-10), explanations, and AI-generated improvements
 - **Parallel Processing**: Translate large texts in chunks with multiple workers
 - **Service Comparison**: Compare translations from different services side-by-side in grid layout
 - **Glossary Management**: Built-in glossary editor with real-time updates
@@ -42,16 +58,16 @@ PolyTranslate is a feature-rich desktop translation application with a **stunnin
 PolyTranslate features a completely redesigned modern UI with:
 
 - **Beautiful Design**: Card-based layout with gradients and smooth animations
-- **Tabbed Navigation**: 4 main tabs - Results, Comparison, History, Glossary
+- **Tabbed Navigation**: 5 main tabs - Results, Comparison, AI Evaluation, History, Glossary
 - **Single Window**: Everything in one place - no popup windows or dialogs
 - **Icon Navigation**: Emoji-based menu system for intuitive navigation
 - **Visual Feedback**: Hover effects, color-coded states, and smooth transitions
-- **Service Icons**: Each translation service has a unique emoji identifier (🔷 DeepL, 🟣 Yandex, 🔴 Google, etc.)
+- **Service Icons**: Each translation service has a unique emoji identifier (🔷 DeepL, 🟣 Yandex, 🔴 Google, 🤖 AI, etc.)
 - **Modern Progress Bar**: Real-time progress with percentage and status
 - **Drag & Drop**: Visual feedback when dragging files (green highlight, success/error states)
 - **Empty States**: Beautiful placeholder screens with helpful messages
 - **Responsive Layout**: Adapts to different window sizes
-- **Instant Switching**: Navigate between translations, comparisons, history, and glossary with one click
+- **Instant Switching**: Navigate between translations, comparisons, evaluations, history, and glossary with one click
 
 ---
 
@@ -114,6 +130,35 @@ python main.py
      - Edit any translation directly in the comparison view
      - Perfect for comparing quality and making adjustments
    - Click "📊 Compare" button to quickly switch to comparison view
+
+### AI-Powered Evaluation (NEW in v2.3)
+
+**Analyze translation quality using AI:**
+
+1. **Complete a translation** with one or more services
+2. **Click "🤖 Evaluate All"** button (appears after translation)
+3. **View AI analysis** with:
+   - **Numerical scores** (0-10) for each translation
+   - **Detailed explanations** highlighting strengths and weaknesses
+   - **Best translation** automatically identified with 🏆 badge
+   - **AI-improved translation** combining the best aspects of all translations
+   - **Color-coded ratings**: Green (7+), Yellow (5-7), Red (<5)
+
+**Features:**
+- Works with **any LLM backend** (OpenAI, Claude, Groq, LocalAI)
+- **Ren'Py game files** supported with structure preservation
+- **All ratings displayed** in Results, Comparison, and dedicated AI Evaluation tabs
+- **Evaluations saved** to history for future reference
+- **Improved translation** is fully editable and exportable
+
+**Setup:**
+1. Open **Settings** (⚙️ button)
+2. Go to **AI Evaluation Settings** section
+3. Select your preferred AI service (OpenAI, Claude, Groq, or LocalAI)
+4. Must have valid API key configured for that service
+5. Leave empty to disable AI evaluation
+
+**Note:** AI evaluation requires API calls to the selected LLM service and may incur costs depending on your service provider.
 
 ### Configuration
 
@@ -191,10 +236,12 @@ PolyTranslate/
 ├── app/
 │   ├── config/          # Configuration management
 │   ├── core/            # Core translation logic
-│   ├── gui/             # Modern CustomTkinter UI
+│   ├── gui/             # Modern CustomTkinter UI (5 tabs)
 │   ├── services/        # Translation service implementations
+│   │   ├── ai_evaluator.py  # AI-powered evaluation service
+│   │   └── ...          # Translation services (DeepL, Google, etc.)
 │   └── utils/           # Utilities (glossary, etc.)
-├── tests/               # Test suite (230 tests, 89% coverage)
+├── tests/               # Test suite (268 tests, 90% coverage)
 ├── main.py              # Application entry point
 ├── requirements.txt     # Production dependencies
 ├── requirements-dev.txt # Development dependencies
@@ -246,6 +293,7 @@ pre-commit run --all-files  # Manual run
 ### Core Components
 
 - **Translator**: Orchestrates translation workflow, manages services
+- **AIEvaluator**: AI-powered translation quality analysis
 - **FileProcessor**: Handles file format reading/writing
 - **LanguageDetector**: Auto-detects source language
 - **Settings**: Manages API keys and application configuration
@@ -255,7 +303,15 @@ pre-commit run --all-files  # Manual run
 
 ```
 File/Text → Process → Split into chunks → Parallel translation →
-Reassemble → Apply glossary → Display results
+Reassemble → Apply glossary → Display results → (Optional) AI Evaluation
+```
+
+### AI Evaluation Workflow
+
+```
+User clicks "Evaluate All" → AI Evaluator generates scores/explanations →
+Identifies best translation → Creates improved translation →
+Display in Results/Comparison/AI Evaluation tabs → Save to history
 ```
 
 ### Service Architecture
@@ -281,13 +337,14 @@ class TranslationService(ABC):
 
 ## 📊 Testing
 
-- **Unit Tests**: 249 tests covering all core modules
+- **Unit Tests**: 268 tests covering all core modules
 - **Integration Tests**: End-to-end workflow testing
-- **Coverage**: 89% code coverage
+- **Coverage**: 90% code coverage
 - **CI/CD Ready**: All tests automated with pytest
 
 Test categories:
 - Translation service mocking (using `responses` library)
+- AI evaluation (prompt generation, score parsing, Ren'Py preservation)
 - Free API fallback mechanisms
 - File format processing
 - Parallel translation
@@ -309,9 +366,9 @@ English, Russian, German, French, Spanish, Italian, Dutch, Polish, Portuguese, C
 
 ## ⚙️ Configuration Files
 
-- **config.json**: API keys and application settings
+- **config.json**: API keys, application settings, and AI evaluator configuration
 - **glossary.json**: Custom terminology dictionary
-- **history.json**: Translation history
+- **history.json**: Translation history with evaluation scores and AI improvements
 
 All configuration files are stored in the application directory and are user-editable.
 
