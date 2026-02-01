@@ -5,6 +5,48 @@ All notable changes to PolyTranslate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-02-01
+
+### Changed
+
+#### User Interface Improvements
+- **Tabbed Interface**: Redesigned UI to use integrated tabs instead of popup windows
+  - All features now accessible from main window
+  - 4 main tabs: 📝 Results, 📊 Comparison, 📜 History, 📚 Glossary
+  - No more popup windows - everything in one place
+
+#### Translation Results
+- Results tab now contains nested service tabs for cleaner organization
+- Comparison view integrated as a permanent tab (not a popup window)
+- Grid layout for comparison view (up to 3 columns)
+- Instant switching between results and comparison views
+
+#### History View
+- History now displayed as a tab in main window instead of popup
+- Beautiful card-based layout for history entries
+- Click any history card to instantly load translation
+- Shows timestamp, languages, file name, and services used
+- Individual entry deletion with visual feedback
+
+#### Glossary Editor
+- Glossary editor now integrated as a tab in main window
+- Real-time editing without closing dialogs
+- Save button with immediate application
+- Clear visual feedback for add/delete operations
+- Case sensitivity toggle easily accessible
+
+### Improved
+- Better navigation flow - all features one click away
+- Reduced window management overhead
+- Consistent UI experience across all features
+- Faster workflow with tabbed interface
+
+### Technical
+- Removed dependencies on popup window classes for Comparison, History, and Glossary
+- Simplified state management with integrated tabs
+- Better memory management (no orphaned popup windows)
+- All tests still passing (230 tests, 89% coverage)
+
 ## [1.0.0] - 2026-02-01
 
 ### Added
@@ -50,8 +92,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Batch Processing**: Process large texts in chunks
 
 #### Developer Tools
-- Comprehensive test suite (226 tests)
-- 90% code coverage
+- Comprehensive test suite (230 tests)
+- 89% code coverage
 - Type hints throughout codebase
 - Automated linting with Ruff
 - Pre-commit hooks for code quality

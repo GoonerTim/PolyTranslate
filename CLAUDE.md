@@ -6,11 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **PolyTranslate** - Modern desktop translation application with beautiful UI and support for 9 translation services (Google FREE, Yandex FREE, DeepL, OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI) and 9 file formats (TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, MD, Ren'Py). Built with Python 3.10+ and CustomTkinter GUI.
 
-### Key Features (v2.0)
+### Key Features (v2.1)
 - **🆓 FREE Translation**: Google and Yandex work without API keys using unofficial public APIs
 - **🎨 Modern UI**: Completely redesigned interface with gradients, icons, animations, and card-based layout
+- **📑 Tabbed Interface**: All features in one window - Results, Comparison, History, Glossary tabs
 - **🚀 Fast & Parallel**: Multi-threaded translation with real-time progress tracking
-- **📊 Service Comparison**: Compare translations from multiple services side-by-side
+- **📊 Service Comparison**: Compare translations from multiple services side-by-side in grid layout
 
 ## Common Commands
 
@@ -118,9 +119,19 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 6. **Free API Fallback**: Google and Yandex services implement automatic fallback to unofficial free APIs when API key is missing or paid API fails. This provides zero-configuration translation capability.
 
-### Modern UI Design (v2.0)
+### Modern UI Design (v2.1)
 
 **Design Philosophy**: Clean, minimal code with modern visual design. Docstrings removed from internal methods for brevity.
+
+**Tabbed Interface Architecture (v2.1)**:
+- **Single Window Design**: All features accessible from main window - no popup dialogs
+- **4 Main Tabs**:
+  - 📝 **Results**: Individual translations from each service (with nested service tabs)
+  - 📊 **Comparison**: Side-by-side grid view of all translations (up to 3 columns)
+  - 📜 **History**: Translation history with beautiful card layout
+  - 📚 **Glossary**: Integrated glossary editor with real-time updates
+- **Seamless Navigation**: One-click switching between all features
+- **State Preservation**: Each tab maintains its state when switching
 
 **Key UI Components**:
 - **Card-based Layout**: Modern rounded corners, shadows, and spacing
@@ -134,9 +145,13 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 - **Empty States**: Beautiful placeholders with helpful messages and large icons
 
 **UI Architecture**:
-- `MainWindow`: Main application window, orchestrates all UI components
-- `FileDropZone`: Modern drag-drop widget with visual feedback (green highlight on drag, success/error states)
+- `MainWindow`: Main application window with integrated tabbed interface
+  - `results_tabview`: CTkTabview containing all 4 main tabs
+  - Manages tab content creation and updates
+  - Handles switching between tabs programmatically
+- `FileDropZone`: Modern drag-drop widget with visual feedback
 - `ProgressBar`: Horizontal progress indicator with status and percentage
+- **Removed**: `ComparisonView`, `HistoryView`, `GlossaryView` popup windows (now integrated tabs)
 - All widgets use minimal docstrings, clean code structure
 
 ### File Processing Strategy
@@ -170,13 +185,15 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 - **`app/services/localai.py`**: LocalAI (self-hosted)
 
 **Modern UI** (excluded from test coverage):
-- **`app/gui/main_window.py`**: Main window with modern card-based layout, icon system, minimal docstrings
+- **`app/gui/main_window.py`**: Main window with integrated tabbed interface
+  - 4 main tabs: Results, Comparison, History, Glossary
+  - Manages all UI content and tab switching
+  - Modern card-based layout, icon system, minimal docstrings
 - **`app/gui/widgets/file_drop.py`**: Modern drag-drop zone with visual feedback
 - **`app/gui/widgets/progress.py`**: Modern horizontal progress bar
-- **`app/gui/settings_dialog.py`**: Settings dialog with API key configuration
-- **`app/gui/comparison_view.py`**: Side-by-side translation comparison
-- **`app/gui/history_view.py`**: Translation history viewer
-- **`app/gui/glossary_view.py`**: Glossary editor
+- **`app/gui/settings_dialog.py`**: Settings dialog with API key configuration (still a popup for focused configuration)
+- **`app/gui/history_view.py`**: TranslationHistory class for history persistence (UI now in main_window.py)
+- **Note**: Comparison, History, and Glossary UI are now integrated tabs in `main_window.py` (not separate popup windows)
 
 **Utilities**:
 - **`app/utils/glossary.py`**: Term dictionary with post-processing replacement, JSON persistence
@@ -278,6 +295,26 @@ Runtime config (gitignored):
 - **Language Code Mappings**: Different services use different codes (e.g., DeepL uses "EN" uppercase, ChatGPT Proxy uses "zh-CN"). See `app/config/languages.py` for mappings.
 
 - **UI Design**: Modern card-based layout with emoji icons. Color scheme uses blue (#2563eb) for primary, green (#10b981) for success, red (#ef4444) for errors.
+
+## UI Workflow (v2.1)
+
+### Navigation Flow
+1. User clicks menu button (📜 History, 📚 Glossary) → switches to that tab
+2. "📊 Compare Results" button → switches to Comparison tab
+3. Clicking history card → loads translation and switches to Results tab
+4. All tabs accessible via direct clicking on tab headers
+
+### Tab Content Management
+- **Results Tab**: Dynamically creates service subtabs when translations complete
+- **Comparison Tab**: Regenerates grid layout when translations update
+- **History Tab**: Refreshes card list when history changes
+- **Glossary Tab**: Maintains entry widgets state, saves on button click
+
+### State Synchronization
+- Translation results (`_translations` dict) shared across Results and Comparison tabs
+- History loads translations into Results tab on selection
+- Glossary saves trigger translator reload for immediate effect
+- Clear button resets translations and switches back to Results tab
 
 ## Known Quirks
 

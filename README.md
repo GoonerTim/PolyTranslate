@@ -25,10 +25,11 @@ PolyTranslate is a feature-rich desktop translation application with a **stunnin
 - **9 File Formats**: TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, Markdown, Ren'Py scripts
 - **🆓 FREE Services**: Google and Yandex work without API keys using unofficial APIs
 - **🎨 Modern UI**: Beautiful redesigned interface with gradients, icons, and smooth animations
+- **📑 Tabbed Interface**: All features in one window - no popup dialogs
 - **Parallel Processing**: Translate large texts in chunks with multiple workers
 - **Service Comparison**: Compare translations from different services side-by-side
-- **Glossary Management**: Maintain custom terminology dictionaries
-- **Translation History**: Track and review past translations
+- **Glossary Management**: Built-in glossary editor with real-time updates
+- **Translation History**: Track and review past translations with instant loading
 - **Auto Language Detection**: Automatically detect source language
 - **Dark/Light Themes**: Toggle between beautiful light and dark themes
 - **Drag & Drop**: Easy file loading with visual feedback
@@ -39,13 +40,16 @@ PolyTranslate is a feature-rich desktop translation application with a **stunnin
 PolyTranslate features a completely redesigned modern UI with:
 
 - **Beautiful Design**: Card-based layout with gradients and smooth animations
+- **Tabbed Navigation**: 4 main tabs - Results, Comparison, History, Glossary
+- **Single Window**: Everything in one place - no popup windows or dialogs
 - **Icon Navigation**: Emoji-based menu system for intuitive navigation
 - **Visual Feedback**: Hover effects, color-coded states, and smooth transitions
-- **Service Icons**: Each translation service has a unique emoji identifier
+- **Service Icons**: Each translation service has a unique emoji identifier (🔷 DeepL, 🟣 Yandex, 🔴 Google, etc.)
 - **Modern Progress Bar**: Real-time progress with percentage and status
 - **Drag & Drop**: Visual feedback when dragging files (green highlight, success/error states)
 - **Empty States**: Beautiful placeholder screens with helpful messages
 - **Responsive Layout**: Adapts to different window sizes
+- **Instant Switching**: Navigate between translations, comparisons, history, and glossary with one click
 
 ---
 
@@ -94,11 +98,14 @@ python main.py
 
 ### Basic Translation
 
-1. **Load Text**: Drag & drop a file or paste text directly
+1. **Load Text**: Drag & drop a file or click "Open" to browse
 2. **Select Languages**: Choose source (or Auto) and target languages
 3. **Select Services**: Check one or more translation services
-4. **Translate**: Click the translate button
-5. **View Results**: Switch between service tabs to compare translations
+4. **Translate**: Click the "🚀 Translate Now" button
+5. **View Results**:
+   - **📝 Results tab**: View individual translations from each service
+   - **📊 Comparison tab**: See all translations side-by-side in a grid layout
+   - Click "📊 Compare Results" button to quickly switch to comparison view
 
 ### Configuration
 
@@ -126,10 +133,20 @@ Supported formats:
 
 ### Glossary Management
 
-1. Open **Glossary** from the menu
-2. Add term pairs (source → target)
-3. Terms are automatically applied after translation
-4. Export/import glossary as JSON
+1. Click **📚 Glossary** button in the menu (or switch to Glossary tab)
+2. Add term pairs (original → replacement)
+3. Toggle "Case Sensitive" option if needed
+4. Click "💾 Save" to apply changes
+5. Terms are automatically applied after translation
+6. Glossary persists in glossary.json
+
+### Translation History
+
+1. Click **📜 History** button in the menu (or switch to History tab)
+2. Browse past translations with timestamps and metadata
+3. Click any history card to reload that translation
+4. Delete individual entries or clear all history
+5. History limited to last 100 translations (auto-pruned)
 
 ---
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -10,9 +11,7 @@ from app.config.languages import get_source_languages, get_target_languages
 from app.config.settings import Settings
 from app.core.file_processor import FileProcessor
 from app.core.translator import Translator
-from app.gui.comparison_view import ComparisonView
-from app.gui.glossary_view import GlossaryView
-from app.gui.history_view import HistoryView, TranslationHistory
+from app.gui.history_view import TranslationHistory
 from app.gui.settings_dialog import SettingsDialog
 from app.gui.widgets.file_drop import FileDropZone
 from app.gui.widgets.progress import ProgressBar
@@ -54,6 +53,10 @@ class MainWindow:
         self._create_window()
         self._create_widgets()
         self._apply_settings()
+
+        # Load initial content for history and glossary tabs
+        self._refresh_history()
+        self._refresh_glossary()
 
     def _create_window(self) -> None:
         if DND_AVAILABLE and TkinterDnD is not None:
@@ -333,12 +336,30 @@ class MainWindow:
         )
         self.results_tabview.pack(fill="both", expand=True)
 
-        # Add initial empty tab
-        self.results_tabview.add("Results")
-        tab = self.results_tabview.tab("Results")
+        # Add all tabs
+        self.results_tabview.add("📝 Results")
+        self.results_tabview.add("📊 Comparison")
+        self.results_tabview.add("📜 History")
+        self.results_tabview.add("📚 Glossary")
 
-        # Initial empty state
-        empty_frame = ctk.CTkFrame(tab, fg_color="transparent")
+        # Results tab with initial empty state
+        results_tab = self.results_tabview.tab("📝 Results")
+        self._create_empty_state(results_tab)
+
+        # Comparison tab with initial empty state
+        comparison_tab = self.results_tabview.tab("📊 Comparison")
+        self._create_empty_comparison_state(comparison_tab)
+
+        # History tab
+        self.history_tab = self.results_tabview.tab("📜 History")
+        self._create_history_content()
+
+        # Glossary tab
+        self.glossary_tab = self.results_tabview.tab("📚 Glossary")
+        self._create_glossary_content()
+
+    def _create_empty_state(self, parent: ctk.CTkFrame) -> None:
+        empty_frame = ctk.CTkFrame(parent, fg_color="transparent")
         empty_frame.pack(fill="both", expand=True, padx=40, pady=40)
 
         ctk.CTkLabel(
@@ -359,6 +380,152 @@ class MainWindow:
             font=ctk.CTkFont(size=13),
             text_color=("gray50", "gray60"),
         ).pack(pady=5)
+
+    def _create_empty_comparison_state(self, parent: ctk.CTkFrame) -> None:
+        empty_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        empty_frame.pack(fill="both", expand=True, padx=40, pady=40)
+
+        ctk.CTkLabel(
+            empty_frame,
+            text="📊",
+            font=ctk.CTkFont(size=60),
+        ).pack(pady=(20, 10))
+
+        ctk.CTkLabel(
+            empty_frame,
+            text="No translations to compare",
+            font=ctk.CTkFont(size=18, weight="bold"),
+        ).pack(pady=5)
+
+        ctk.CTkLabel(
+            empty_frame,
+            text="Complete a translation to see comparison view",
+            font=ctk.CTkFont(size=13),
+            text_color=("gray50", "gray60"),
+        ).pack(pady=5)
+
+    def _create_history_content(self) -> None:
+        # Header with clear button
+        header_frame = ctk.CTkFrame(self.history_tab, fg_color="transparent")
+        header_frame.pack(fill="x", padx=15, pady=15)
+
+        ctk.CTkLabel(
+            header_frame,
+            text="📜 Translation History",
+            font=ctk.CTkFont(size=16, weight="bold"),
+        ).pack(side="left")
+
+        ctk.CTkButton(
+            header_frame,
+            text="🗑️ Clear All",
+            command=self._clear_history,
+            width=120,
+            height=35,
+            corner_radius=8,
+            fg_color=("#ef4444", "#dc2626"),
+            hover_color=("#dc2626", "#b91c1c"),
+            font=ctk.CTkFont(size=12),
+        ).pack(side="right")
+
+        # Scrollable list
+        self.history_list_frame = ctk.CTkScrollableFrame(self.history_tab)
+        self.history_list_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+
+    def _create_glossary_content(self) -> None:
+        # Header
+        header_frame = ctk.CTkFrame(self.glossary_tab, fg_color="transparent")
+        header_frame.pack(fill="x", padx=15, pady=15)
+
+        ctk.CTkLabel(
+            header_frame,
+            text="📚 Glossary Editor",
+            font=ctk.CTkFont(size=16, weight="bold"),
+        ).pack(side="left")
+
+        # Case sensitivity toggle
+        self.glossary_case_var = ctk.BooleanVar(value=self.glossary.is_case_sensitive())
+        case_check = ctk.CTkCheckBox(
+            header_frame,
+            text="Case Sensitive",
+            variable=self.glossary_case_var,
+            font=ctk.CTkFont(size=12),
+        )
+        case_check.pack(side="right", padx=10)
+
+        # Info text
+        info_frame = ctk.CTkFrame(self.glossary_tab, fg_color="transparent")
+        info_frame.pack(fill="x", padx=15, pady=(0, 10))
+
+        ctk.CTkLabel(
+            info_frame,
+            text="Define term replacements. Terms will be replaced after translation.",
+            font=ctk.CTkFont(size=11),
+            text_color=("gray50", "gray60"),
+        ).pack(anchor="w")
+
+        # Column headers
+        headers_frame = ctk.CTkFrame(self.glossary_tab, fg_color="transparent")
+        headers_frame.pack(fill="x", padx=15)
+
+        ctk.CTkLabel(
+            headers_frame,
+            text="Original Term",
+            width=280,
+            anchor="w",
+            font=ctk.CTkFont(size=12, weight="bold"),
+        ).pack(side="left", padx=5)
+
+        ctk.CTkLabel(
+            headers_frame,
+            text="Replacement",
+            width=280,
+            anchor="w",
+            font=ctk.CTkFont(size=12, weight="bold"),
+        ).pack(side="left", padx=5)
+
+        # Scrollable entries list
+        self.glossary_entries_frame = ctk.CTkScrollableFrame(self.glossary_tab, height=300)
+        self.glossary_entries_frame.pack(fill="both", expand=True, padx=15, pady=10)
+
+        self.glossary_entry_widgets: list[tuple[ctk.CTkEntry, ctk.CTkEntry]] = []
+
+        # Buttons
+        button_frame = ctk.CTkFrame(self.glossary_tab, fg_color="transparent")
+        button_frame.pack(fill="x", padx=15, pady=15)
+
+        ctk.CTkButton(
+            button_frame,
+            text="➕ Add Entry",
+            command=self._add_glossary_entry,
+            width=120,
+            height=35,
+            corner_radius=8,
+            font=ctk.CTkFont(size=12),
+        ).pack(side="left", padx=5)
+
+        ctk.CTkButton(
+            button_frame,
+            text="💾 Save",
+            command=self._save_glossary,
+            width=120,
+            height=35,
+            corner_radius=8,
+            fg_color=("#10b981", "#34d399"),
+            hover_color=("#059669", "#10b981"),
+            font=ctk.CTkFont(size=12),
+        ).pack(side="right", padx=5)
+
+        ctk.CTkButton(
+            button_frame,
+            text="🗑️ Clear All",
+            command=self._clear_glossary,
+            width=120,
+            height=35,
+            corner_radius=8,
+            fg_color=("#ef4444", "#dc2626"),
+            hover_color=("#dc2626", "#b91c1c"),
+            font=ctk.CTkFont(size=12),
+        ).pack(side="right", padx=5)
 
     def _create_status_bar(self) -> None:
 
@@ -419,21 +586,22 @@ class MainWindow:
 
     def _open_history(self) -> None:
 
-        HistoryView(self.root, self.history, on_select=self._on_history_select)
+        self.results_tabview.set("📜 History")
+        self._refresh_history()
 
     def _on_history_select(self, entry: dict[str, Any]) -> None:
 
         self._translations = entry.get("translations", {})
         self._update_results()
+        # Switch to results tab to show the loaded translations
+        self.results_tabview.set("📝 Results")
+        self._status("History entry loaded")
 
     def _open_glossary(self) -> None:
 
-        GlossaryView(self.root, self.glossary, on_save=self._on_glossary_saved)
+        self.results_tabview.set("📚 Glossary")
+        self._refresh_glossary()
 
-    def _on_glossary_saved(self) -> None:
-
-        self.translator.glossary = self.glossary
-        self._status("Glossary saved")
 
     def _toggle_theme(self) -> None:
 
@@ -552,37 +720,13 @@ class MainWindow:
         self._status(f"Error: {error}")
 
     def _update_results(self) -> None:
-
-        # Remove old tabs
-        for tab_name in self.results_tabview._tab_dict.copy():
-            self.results_tabview.delete(tab_name)
+        # Clear Results tab content
+        results_tab = self.results_tabview.tab("📝 Results")
+        for widget in results_tab.winfo_children():
+            widget.destroy()
 
         if not self._translations:
-            self.results_tabview.add("Results")
-            tab = self.results_tabview.tab("Results")
-
-            # Empty state with nice design
-            empty_frame = ctk.CTkFrame(tab, fg_color="transparent")
-            empty_frame.pack(fill="both", expand=True, padx=40, pady=40)
-
-            ctk.CTkLabel(
-                empty_frame,
-                text="📄",
-                font=ctk.CTkFont(size=60),
-            ).pack(pady=(20, 10))
-
-            ctk.CTkLabel(
-                empty_frame,
-                text="No translations yet",
-                font=ctk.CTkFont(size=18, weight="bold"),
-            ).pack(pady=5)
-
-            ctk.CTkLabel(
-                empty_frame,
-                text="Upload a file and start translating!",
-                font=ctk.CTkFont(size=13),
-                text_color=("gray50", "gray60"),
-            ).pack(pady=5)
+            self._create_empty_state(results_tab)
             return
 
         # Service icons
@@ -598,12 +742,16 @@ class MainWindow:
             "localai": "💻",
         }
 
+        # Create service tabs inside Results tab
+        service_tabview = ctk.CTkTabview(results_tab, corner_radius=8)
+        service_tabview.pack(fill="both", expand=True, padx=5, pady=5)
+
         # Create a tab for each service with modern design
         for service, translation in self._translations.items():
             icon = service_icons.get(service, "•")
             tab_name = f"{icon} {service.upper()}"
-            self.results_tabview.add(tab_name)
-            tab = self.results_tabview.tab(tab_name)
+            service_tabview.add(tab_name)
+            tab = service_tabview.tab(tab_name)
 
             # Stats and actions bar
             stats_frame = ctk.CTkFrame(tab, corner_radius=8, height=50)
@@ -654,6 +802,9 @@ class MainWindow:
             text_box.pack(fill="both", expand=True, padx=10, pady=(0, 10))
             text_box.insert("1.0", translation)
 
+        # Update comparison tab
+        self._update_comparison_tab()
+
     def _save_translation(self, text: str, service: str) -> None:
 
         from tkinter import filedialog
@@ -687,10 +838,105 @@ class MainWindow:
         self.root.clipboard_append(text)
         self._status("Copied to clipboard")
 
+    def _update_comparison_tab(self) -> None:
+        # Clear Comparison tab content
+        comparison_tab = self.results_tabview.tab("📊 Comparison")
+        for widget in comparison_tab.winfo_children():
+            widget.destroy()
+
+        if not self._translations:
+            self._create_empty_comparison_state(comparison_tab)
+            return
+
+        # Service icons
+        service_icons = {
+            "deepl": "🔷",
+            "yandex": "🟣",
+            "google": "🔴",
+            "openai": "🤖",
+            "openrouter": "🌐",
+            "chatgpt_proxy": "💬",
+            "groq": "⚡",
+            "claude": "🎭",
+            "localai": "💻",
+        }
+
+        # Create scrollable container
+        scroll_frame = ctk.CTkScrollableFrame(comparison_tab)
+        scroll_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Calculate grid layout
+        num_services = len(self._translations)
+        columns = min(3, num_services)
+
+        # Configure grid
+        for i in range(columns):
+            scroll_frame.grid_columnconfigure(i, weight=1, uniform="col")
+
+        # Create comparison panels
+        services = list(self._translations.items())
+        for idx, (service, translation) in enumerate(services):
+            row = idx // columns
+            col = idx % columns
+
+            panel = self._create_comparison_panel(
+                scroll_frame, service, translation, service_icons
+            )
+            panel.grid(row=row, column=col, padx=8, pady=8, sticky="nsew")
+
+    def _create_comparison_panel(
+        self,
+        parent: ctk.CTkFrame,
+        service: str,
+        text: str,
+        service_icons: dict[str, str],
+    ) -> ctk.CTkFrame:
+        panel = ctk.CTkFrame(parent, corner_radius=12)
+
+        # Service name header with icon
+        icon = service_icons.get(service, "•")
+        header = ctk.CTkLabel(
+            panel,
+            text=f"{icon} {service.upper()}",
+            font=ctk.CTkFont(size=14, weight="bold"),
+        )
+        header.pack(fill="x", padx=10, pady=(10, 5))
+
+        # Stats
+        stats_text = f"📊 {len(text):,} chars  •  {len(text.split()):,} words"
+        stats = ctk.CTkLabel(
+            panel,
+            text=stats_text,
+            font=ctk.CTkFont(size=11),
+            text_color=("gray50", "gray60"),
+        )
+        stats.pack(fill="x", padx=10, pady=(0, 5))
+
+        # Text area
+        text_box = ctk.CTkTextbox(panel, wrap="word", height=300, font=ctk.CTkFont(size=12))
+        text_box.pack(fill="both", expand=True, padx=10, pady=5)
+        text_box.insert("1.0", text)
+        text_box.configure(state="disabled")
+
+        # Copy button
+        copy_btn = ctk.CTkButton(
+            panel,
+            text="📋 Copy",
+            command=lambda t=text: self._copy_to_clipboard(t),
+            width=100,
+            height=30,
+            corner_radius=8,
+            font=ctk.CTkFont(size=12),
+        )
+        copy_btn.pack(pady=10)
+
+        return panel
+
     def _show_comparison(self) -> None:
 
         if self._translations:
-            ComparisonView(self.root, self._translations, self._current_text)
+            # Switch to comparison tab
+            self.results_tabview.set("📊 Comparison")
 
     def _clear_all(self) -> None:
 
@@ -701,7 +947,242 @@ class MainWindow:
         self.progress.reset()
         self.compare_button.configure(state="disabled")
         self._update_results()
+        # Switch back to results tab
+        self.results_tabview.set("📝 Results")
         self._status("Cleared")
+
+    def _refresh_history(self) -> None:
+        # Clear existing
+        for widget in self.history_list_frame.winfo_children():
+            widget.destroy()
+
+        entries = self.history.get_entries()
+
+        if not entries:
+            empty_frame = ctk.CTkFrame(self.history_list_frame, fg_color="transparent")
+            empty_frame.pack(fill="both", expand=True, padx=40, pady=40)
+
+            ctk.CTkLabel(
+                empty_frame,
+                text="📜",
+                font=ctk.CTkFont(size=60),
+            ).pack(pady=(20, 10))
+
+            ctk.CTkLabel(
+                empty_frame,
+                text="No translation history",
+                font=ctk.CTkFont(size=18, weight="bold"),
+            ).pack(pady=5)
+
+            ctk.CTkLabel(
+                empty_frame,
+                text="Your translation history will appear here",
+                font=ctk.CTkFont(size=13),
+                text_color=("gray50", "gray60"),
+            ).pack(pady=5)
+            return
+
+        for idx, entry in enumerate(entries):
+            self._create_history_card(idx, entry)
+
+    def _create_history_card(self, idx: int, entry: dict[str, Any]) -> None:
+        card = ctk.CTkFrame(self.history_list_frame, corner_radius=12)
+        card.pack(fill="x", pady=8, padx=5)
+
+        # Header row
+        header = ctk.CTkFrame(card, fg_color="transparent")
+        header.pack(fill="x", padx=15, pady=10)
+
+        # Timestamp
+        timestamp = entry.get("timestamp", "")
+        if timestamp:
+            try:
+                dt = datetime.fromisoformat(timestamp)
+                timestamp = dt.strftime("%Y-%m-%d %H:%M")
+            except ValueError:
+                pass
+
+        ctk.CTkLabel(
+            header,
+            text=f"🕒 {timestamp}",
+            font=ctk.CTkFont(size=11, weight="bold"),
+        ).pack(side="left")
+
+        # Languages
+        source_lang = entry.get("source_lang", "?")
+        target_lang = entry.get("target_lang", "?")
+        ctk.CTkLabel(
+            header,
+            text=f"{source_lang.upper()} → {target_lang.upper()}",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=("#2563eb", "#60a5fa"),
+        ).pack(side="left", padx=20)
+
+        # File name
+        file_name = entry.get("file_name", "")
+        if file_name:
+            ctk.CTkLabel(
+                header,
+                text=f"📄 {file_name}",
+                font=ctk.CTkFont(size=11),
+            ).pack(side="left", padx=10)
+
+        # Delete button
+        delete_btn = ctk.CTkButton(
+            header,
+            text="✕",
+            command=lambda i=idx: self._delete_history_entry(i),
+            width=30,
+            height=25,
+            corner_radius=6,
+            fg_color="transparent",
+            text_color=("gray50", "gray60"),
+            hover_color=("gray70", "gray40"),
+            font=ctk.CTkFont(size=14),
+        )
+        delete_btn.pack(side="right")
+
+        # Preview text
+        source_preview = entry.get("source_text", "")[:150]
+        if len(entry.get("source_text", "")) > 150:
+            source_preview += "..."
+
+        preview_label = ctk.CTkLabel(
+            card,
+            text=source_preview,
+            font=ctk.CTkFont(size=11),
+            anchor="w",
+            justify="left",
+        )
+        preview_label.pack(fill="x", padx=15, pady=(0, 5))
+
+        # Services used
+        services = list(entry.get("translations", {}).keys())
+        if services:
+            services_text = "Services: " + ", ".join(s.upper() for s in services)
+            ctk.CTkLabel(
+                card,
+                text=services_text,
+                font=ctk.CTkFont(size=10),
+                text_color=("gray50", "gray60"),
+            ).pack(fill="x", padx=15, pady=(0, 10))
+
+        # Make card clickable
+        def select_entry(e: Any = None) -> None:
+            self._on_history_select(entry)
+
+        card.bind("<Button-1>", select_entry)
+        for child in card.winfo_children():
+            if not isinstance(child, ctk.CTkButton):
+                child.bind("<Button-1>", select_entry)
+
+    def _delete_history_entry(self, index: int) -> None:
+        self.history.delete_entry(index)
+        self._refresh_history()
+        self._status("History entry deleted")
+
+    def _clear_history(self) -> None:
+        self.history.clear()
+        self._refresh_history()
+        self._status("History cleared")
+
+    def _refresh_glossary(self) -> None:
+        # Clear existing
+        for widget in self.glossary_entries_frame.winfo_children():
+            widget.destroy()
+
+        self.glossary_entry_widgets.clear()
+        self.glossary_case_var.set(self.glossary.is_case_sensitive())
+
+        entries = self.glossary.get_all_entries()
+
+        for original, replacement in entries.items():
+            self._add_glossary_row(original, replacement)
+
+        # Add one empty row if no entries
+        if not entries:
+            self._add_glossary_row()
+
+    def _add_glossary_entry(self) -> None:
+        self._add_glossary_row()
+
+    def _add_glossary_row(self, original: str = "", replacement: str = "") -> None:
+        row_frame = ctk.CTkFrame(self.glossary_entries_frame, fg_color="transparent")
+        row_frame.pack(fill="x", pady=3)
+
+        original_entry = ctk.CTkEntry(
+            row_frame,
+            width=280,
+            height=35,
+            corner_radius=8,
+            font=ctk.CTkFont(size=12),
+        )
+        original_entry.pack(side="left", padx=5)
+        if original:
+            original_entry.insert(0, original)
+
+        replacement_entry = ctk.CTkEntry(
+            row_frame,
+            width=280,
+            height=35,
+            corner_radius=8,
+            font=ctk.CTkFont(size=12),
+        )
+        replacement_entry.pack(side="left", padx=5)
+        if replacement:
+            replacement_entry.insert(0, replacement)
+
+        # Delete button
+        delete_btn = ctk.CTkButton(
+            row_frame,
+            text="✕",
+            command=lambda: self._delete_glossary_row(row_frame, original_entry, replacement_entry),
+            width=35,
+            height=35,
+            corner_radius=8,
+            fg_color="transparent",
+            text_color=("gray50", "gray60"),
+            hover_color=("gray70", "gray40"),
+            font=ctk.CTkFont(size=14),
+        )
+        delete_btn.pack(side="left", padx=5)
+
+        self.glossary_entry_widgets.append((original_entry, replacement_entry))
+
+    def _delete_glossary_row(
+        self,
+        row_frame: ctk.CTkFrame,
+        original_entry: ctk.CTkEntry,
+        replacement_entry: ctk.CTkEntry,
+    ) -> None:
+        self.glossary_entry_widgets.remove((original_entry, replacement_entry))
+        row_frame.destroy()
+
+    def _save_glossary(self) -> None:
+        # Collect entries
+        entries: dict[str, str] = {}
+        for original_entry, replacement_entry in self.glossary_entry_widgets:
+            original = original_entry.get().strip()
+            replacement = replacement_entry.get().strip()
+            if original and replacement:
+                entries[original] = replacement
+
+        # Update glossary
+        self.glossary.set_entries(entries)
+        self.glossary.set_case_sensitive(self.glossary_case_var.get())
+        self.glossary.save()
+
+        # Update translator
+        self.translator.glossary = self.glossary
+        self._status("Glossary saved ✓")
+
+    def _clear_glossary(self) -> None:
+        for original_entry, _replacement_entry in self.glossary_entry_widgets:
+            if hasattr(original_entry, 'master'):
+                original_entry.master.destroy()  # type: ignore[union-attr]
+        self.glossary_entry_widgets.clear()
+        self._add_glossary_row()
+        self._status("Glossary entries cleared")
 
     def _status(self, message: str) -> None:
 
