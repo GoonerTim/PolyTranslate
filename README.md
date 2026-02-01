@@ -1,10 +1,10 @@
-# PolyTranslate
+mm# PolyTranslate
 
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-230%20passed-brightgreen.svg)
-![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-245%20passed-brightgreen.svg)
+![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 **Modern desktop translation application with beautiful UI and support for multiple translation services**
@@ -271,9 +271,9 @@ class TranslationService(ABC):
 
 ## 📊 Testing
 
-- **Unit Tests**: 230 tests covering all core modules
+- **Unit Tests**: 245 tests covering all core modules
 - **Integration Tests**: End-to-end workflow testing
-- **Coverage**: 89% code coverage
+- **Coverage**: 90% code coverage
 - **CI/CD Ready**: All tests automated with pytest
 
 Test categories:
