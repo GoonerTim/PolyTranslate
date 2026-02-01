@@ -34,7 +34,7 @@ class SettingsDialog(ctk.CTkToplevel):
         self.on_save = on_save
 
         self.title("Settings")
-        self.geometry("500x600")
+        self.geometry("500x700")
         self.resizable(False, False)
 
         # Make modal
@@ -105,6 +105,33 @@ class SettingsDialog(ctk.CTkToplevel):
             "Server URL:", "http://localhost:8080/v1"
         )
         self.localai_model_entry = self._create_labeled_entry("Model:", "default")
+
+        # AI Evaluation Settings
+        self._create_section_label("AI Evaluation Settings")
+
+        eval_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        eval_frame.pack(fill="x", padx=5, pady=5)
+
+        ctk.CTkLabel(eval_frame, text="AI Evaluator Service:", width=150, anchor="w").pack(
+            side="left", padx=5
+        )
+        self.ai_evaluator_service_var = ctk.StringVar(value="")
+        self.ai_evaluator_dropdown = ctk.CTkOptionMenu(
+            eval_frame,
+            variable=self.ai_evaluator_service_var,
+            values=["", "openai", "claude", "groq", "localai"],
+            width=200,
+        )
+        self.ai_evaluator_dropdown.pack(side="left", padx=5)
+
+        eval_helper = ctk.CTkLabel(
+            self.scroll_frame,
+            text="Select which AI service to use for translation evaluation.\nLeave empty to disable AI evaluation feature.",
+            font=ctk.CTkFont(size=11),
+            text_color="gray60",
+            justify="left",
+        )
+        eval_helper.pack(fill="x", padx=10, pady=(2, 5))
 
         # Processing Settings
         self._create_section_label("Processing Settings")
@@ -216,6 +243,9 @@ class SettingsDialog(ctk.CTkToplevel):
         localai_model = self.settings.get("localai_model", "default")
         self.localai_model_entry.insert(0, localai_model)
 
+        # AI Evaluator
+        self.ai_evaluator_service_var.set(self.settings.get("ai_evaluator_service", ""))
+
         # Processing settings
         self.chunk_size_slider.set(self.settings.get_chunk_size())
         self.chunk_size_label.configure(text=str(self.settings.get_chunk_size()))
@@ -235,6 +265,9 @@ class SettingsDialog(ctk.CTkToplevel):
         # LocalAI
         self.settings.set("localai_url", self.localai_url_entry.get())
         self.settings.set("localai_model", self.localai_model_entry.get())
+
+        # AI Evaluator
+        self.settings.set("ai_evaluator_service", self.ai_evaluator_service_var.get())
 
         # Processing settings
         self.settings.set_chunk_size(int(self.chunk_size_slider.get()))

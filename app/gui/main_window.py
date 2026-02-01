@@ -15,6 +15,7 @@ from app.gui.history_view import TranslationHistory
 from app.gui.settings_dialog import SettingsDialog
 from app.gui.widgets.file_drop import FileDropZone
 from app.gui.widgets.progress import ProgressBar
+from app.services.ai_evaluator import AIEvaluator, EvaluationResult
 from app.utils.glossary import Glossary
 
 try:
@@ -50,6 +51,12 @@ class MainWindow:
         self._original_text: str = ""  # Store original for comparison
         self._translations: dict[str, str] = {}
         self._is_translating: bool = False
+
+        # AI Evaluation storage
+        self._evaluations: dict[str, EvaluationResult] = {}
+        self._ai_improved_translation: str = ""
+        self._best_service: str = ""
+        self._ai_evaluator: AIEvaluator | None = None
 
         self._create_window()
         self._create_widgets()
@@ -301,6 +308,19 @@ class MainWindow:
         )
         self.compare_button.pack(fill="x", pady=3)
 
+        self.evaluate_button = ctk.CTkButton(
+            action_frame,
+            text="🤖 Evaluate All",
+            command=self._start_evaluation,
+            height=38,
+            corner_radius=10,
+            font=ctk.CTkFont(size=13),
+            fg_color=("#9333ea", "#7c3aed"),
+            hover_color=("#7c3aed", "#6d28d9"),
+            state="disabled",
+        )
+        self.evaluate_button.pack(fill="x", pady=3)
+
         self.clear_button = ctk.CTkButton(
             action_frame,
             text="🗑️ Clear",
@@ -351,12 +371,17 @@ class MainWindow:
         # Add all tabs
         self.results_tabview.add("📝 Results")
         self.results_tabview.add("📊 Comparison")
+        self.results_tabview.add("🤖 AI Evaluation")
         self.results_tabview.add("📜 History")
         self.results_tabview.add("📚 Glossary")
 
         # Results tab with initial empty state
         results_tab = self.results_tabview.tab("📝 Results")
         self._create_empty_state(results_tab)
+
+        # AI Evaluation tab with initial empty state
+        ai_eval_tab = self.results_tabview.tab("🤖 AI Evaluation")
+        self._create_empty_ai_eval_state(ai_eval_tab)
 
         # Comparison tab with initial empty state
         comparison_tab = self.results_tabview.tab("📊 Comparison")
@@ -415,6 +440,248 @@ class MainWindow:
             font=ctk.CTkFont(size=13),
             text_color=("gray50", "gray60"),
         ).pack(pady=5)
+
+    def _create_empty_ai_eval_state(self, parent: ctk.CTkFrame) -> None:
+        empty_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        empty_frame.pack(fill="both", expand=True, padx=40, pady=40)
+
+        ctk.CTkLabel(
+            empty_frame,
+            text="🤖",
+            font=ctk.CTkFont(size=60),
+        ).pack(pady=(20, 10))
+
+        ctk.CTkLabel(
+            empty_frame,
+            text="No AI evaluations yet",
+            font=ctk.CTkFont(size=18, weight="bold"),
+        ).pack(pady=5)
+
+        ctk.CTkLabel(
+            empty_frame,
+            text="Translate text and click '🤖 Evaluate All' to get AI-powered ratings",
+            font=ctk.CTkFont(size=13),
+            text_color=("gray50", "gray60"),
+        ).pack(pady=5)
+
+        # Info about configuration
+        ctk.CTkLabel(
+            empty_frame,
+            text="Configure AI Evaluator service in Settings > AI Evaluation Settings",
+            font=ctk.CTkFont(size=11),
+            text_color=("gray40", "gray70"),
+        ).pack(pady=(15, 5))
+
+    def _update_ai_eval_tab(self) -> None:
+        ai_eval_tab = self.results_tabview.tab("🤖 AI Evaluation")
+
+        # Clear existing content
+        for widget in ai_eval_tab.winfo_children():
+            widget.destroy()
+
+        if not self._evaluations:
+            self._create_empty_ai_eval_state(ai_eval_tab)
+            return
+
+        # Scrollable container
+        scroll_frame = ctk.CTkScrollableFrame(ai_eval_tab)
+        scroll_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # Header
+        header_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 15))
+
+        ctk.CTkLabel(
+            header_frame,
+            text="🤖 AI Evaluation Report",
+            font=ctk.CTkFont(size=18, weight="bold"),
+        ).pack(anchor="w")
+
+        # Summary section
+        self._create_eval_summary(scroll_frame)
+
+        # Detailed evaluations
+        self._create_eval_details(scroll_frame)
+
+        # Improved translation section
+        if self._ai_improved_translation:
+            self._create_improved_section(scroll_frame)
+
+    def _create_eval_summary(self, parent: ctk.CTkFrame) -> None:
+        summary_card = ctk.CTkFrame(parent, corner_radius=12)
+        summary_card.pack(fill="x", pady=(0, 15))
+
+        summary_inner = ctk.CTkFrame(summary_card, fg_color="transparent")
+        summary_inner.pack(fill="x", padx=20, pady=15)
+
+        ctk.CTkLabel(
+            summary_inner,
+            text="📊 Summary Statistics",
+            font=ctk.CTkFont(size=15, weight="bold"),
+        ).pack(anchor="w", pady=(0, 10))
+
+        # Calculate stats
+        num_translations = len(self._evaluations)
+        avg_score = sum(e.score for e in self._evaluations.values()) / num_translations
+        best_service = self._best_service
+        best_score = self._evaluations[best_service].score if best_service else 0
+
+        # Stats grid
+        stats_frame = ctk.CTkFrame(summary_inner, fg_color="transparent")
+        stats_frame.pack(fill="x")
+
+        stats = [
+            ("Evaluated:", f"{num_translations} translations"),
+            ("Best:", f"{best_service.upper()} (⭐ {best_score:.1f}/10)"),
+            ("Average Score:", f"{avg_score:.1f}/10"),
+        ]
+
+        for label, value in stats:
+            row = ctk.CTkFrame(stats_frame, fg_color="transparent")
+            row.pack(fill="x", pady=3)
+
+            ctk.CTkLabel(
+                row,
+                text=label,
+                font=ctk.CTkFont(size=12, weight="bold"),
+                width=150,
+                anchor="w",
+            ).pack(side="left")
+
+            ctk.CTkLabel(row, text=value, font=ctk.CTkFont(size=12), anchor="w").pack(side="left")
+
+    def _create_eval_details(self, parent: ctk.CTkFrame) -> None:
+        details_header = ctk.CTkFrame(parent, fg_color="transparent")
+        details_header.pack(fill="x", pady=(0, 10))
+
+        ctk.CTkLabel(
+            details_header,
+            text="📝 Detailed Evaluations",
+            font=ctk.CTkFont(size=15, weight="bold"),
+        ).pack(anchor="w")
+
+        # Service icons
+        service_icons = {
+            "deepl": "🔷",
+            "yandex": "🟣",
+            "google": "🔴",
+            "openai": "🤖",
+            "openrouter": "🌐",
+            "chatgpt_proxy": "💬",
+            "groq": "⚡",
+            "claude": "🎭",
+            "localai": "💻",
+        }
+
+        # Sort by score descending
+        sorted_evals = sorted(self._evaluations.items(), key=lambda x: x[1].score, reverse=True)
+
+        for service, eval_result in sorted_evals:
+            eval_card = ctk.CTkFrame(
+                parent,
+                corner_radius=10,
+                fg_color=self._get_rating_color(eval_result.score),
+            )
+            eval_card.pack(fill="x", pady=5)
+
+            eval_inner = ctk.CTkFrame(eval_card, fg_color="transparent")
+            eval_inner.pack(fill="x", padx=15, pady=12)
+
+            # Header with icon and score
+            header = ctk.CTkFrame(eval_inner, fg_color="transparent")
+            header.pack(fill="x", pady=(0, 8))
+
+            icon = service_icons.get(service, "•")
+            title_text = f"{icon} {service.upper()}"
+            if service == self._best_service:
+                title_text += " 🏆"
+
+            ctk.CTkLabel(
+                header,
+                text=title_text,
+                font=ctk.CTkFont(size=14, weight="bold"),
+            ).pack(side="left")
+
+            ctk.CTkLabel(
+                header,
+                text=f"⭐ {eval_result.score:.1f}/10",
+                font=ctk.CTkFont(size=14, weight="bold"),
+                text_color=self._get_score_text_color(eval_result.score),
+            ).pack(side="right")
+
+            # Explanation
+            ctk.CTkLabel(
+                eval_inner,
+                text=eval_result.explanation,
+                font=ctk.CTkFont(size=12),
+                wraplength=700,
+                anchor="w",
+                justify="left",
+            ).pack(fill="x")
+
+    def _create_improved_section(self, parent: ctk.CTkFrame) -> None:
+        improved_header = ctk.CTkFrame(parent, fg_color="transparent")
+        improved_header.pack(fill="x", pady=(15, 10))
+
+        ctk.CTkLabel(
+            improved_header,
+            text="✨ AI Improved Translation",
+            font=ctk.CTkFont(size=15, weight="bold"),
+        ).pack(anchor="w")
+
+        # Improved translation card
+        improved_card = ctk.CTkFrame(parent, corner_radius=12)
+        improved_card.pack(fill="x", pady=(0, 15))
+
+        # Text box (editable)
+        text_box = ctk.CTkTextbox(
+            improved_card,
+            wrap="word",
+            height=200,
+            font=ctk.CTkFont(size=13),
+            activate_scrollbars=True,
+        )
+        text_box.pack(fill="both", expand=True, padx=15, pady=15)
+        text_box.insert("1.0", self._ai_improved_translation)
+        text_box.configure(state="normal")
+
+        # Update translation on edit
+        def on_text_change(event: Any = None) -> None:
+            self._ai_improved_translation = text_box.get("1.0", "end-1c")
+            if "ai_improved" in self._translations:
+                self._translations["ai_improved"] = self._ai_improved_translation
+
+        text_box._textbox.bind(
+            "<<Modified>>",
+            lambda e: (  # type: ignore[attr-defined]
+                on_text_change() if text_box._textbox.edit_modified() else None,  # type: ignore[attr-defined]
+                text_box._textbox.edit_modified(False),  # type: ignore[attr-defined]
+            ),
+        )
+
+        # Action buttons
+        button_frame = ctk.CTkFrame(improved_card, fg_color="transparent")
+        button_frame.pack(fill="x", padx=15, pady=(0, 15))
+
+        ctk.CTkButton(
+            button_frame,
+            text="📋 Copy",
+            command=lambda: self._copy_to_clipboard(text_box.get("1.0", "end-1c")),
+            width=120,
+            height=35,
+            corner_radius=8,
+            font=ctk.CTkFont(size=12),
+        ).pack(side="left", padx=5)
+
+        ctk.CTkButton(
+            button_frame,
+            text="💾 Save to File",
+            command=lambda: self._save_translation(text_box.get("1.0", "end-1c"), "ai_improved"),
+            width=120,
+            height=35,
+            corner_radius=8,
+            font=ctk.CTkFont(size=12),
+        ).pack(side="left", padx=5)
 
     def _create_history_content(self) -> None:
         # Header with clear button
@@ -713,6 +980,11 @@ class MainWindow:
         self._status("Translation complete")
         self._update_results()
 
+        # Enable evaluate button if AI evaluator configured and translations exist
+        evaluator_service = self.settings.get("ai_evaluator_service", "")
+        if evaluator_service and len(self._translations) > 0:
+            self.evaluate_button.configure(state="normal")
+
     def _on_translation_error(self, error: str) -> None:
         self._is_translating = False
         self.translate_button.configure(state="normal")
@@ -740,6 +1012,7 @@ class MainWindow:
             "groq": "⚡",
             "claude": "🎭",
             "localai": "💻",
+            "ai_improved": "✨",
         }
 
         # Create service tabs inside Results tab
@@ -791,6 +1064,49 @@ class MainWindow:
                 font=ctk.CTkFont(size=12),
             )
             save_btn.pack(side="right", padx=5)
+
+            # Add rating frame if evaluation exists
+            if service in self._evaluations and service != "ai_improved":
+                eval_result = self._evaluations[service]
+
+                rating_frame = ctk.CTkFrame(
+                    tab,
+                    fg_color=self._get_rating_color(eval_result.score),
+                    corner_radius=8,
+                )
+                rating_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+                rating_inner = ctk.CTkFrame(rating_frame, fg_color="transparent")
+                rating_inner.pack(fill="x", padx=15, pady=10)
+
+                # Score badge
+                score_label = ctk.CTkLabel(
+                    rating_inner,
+                    text=f"⭐ {eval_result.score:.1f}/10",
+                    font=ctk.CTkFont(size=13, weight="bold"),
+                )
+                score_label.pack(side="left", padx=(0, 15))
+
+                # Explanation
+                explanation_label = ctk.CTkLabel(
+                    rating_inner,
+                    text=eval_result.explanation,
+                    font=ctk.CTkFont(size=11),
+                    wraplength=500,
+                    anchor="w",
+                    justify="left",
+                )
+                explanation_label.pack(side="left", fill="x", expand=True, padx=(0, 15))
+
+                # Best badge
+                if service == self._best_service:
+                    best_badge = ctk.CTkLabel(
+                        rating_inner,
+                        text="🏆 BEST",
+                        font=ctk.CTkFont(size=12, weight="bold"),
+                        text_color=("#10b981", "#34d399"),
+                    )
+                    best_badge.pack(side="right")
 
             # Text box with nice styling (scrollable, copyable, and EDITABLE)
             text_box = ctk.CTkTextbox(
@@ -872,6 +1188,7 @@ class MainWindow:
             "groq": "⚡",
             "claude": "🎭",
             "localai": "💻",
+            "ai_improved": "✨",
         }
 
         # Create scrollable container
@@ -913,7 +1230,13 @@ class MainWindow:
         service_icons: dict[str, str],
         is_original: bool = False,
     ) -> ctk.CTkFrame:
-        panel = ctk.CTkFrame(parent, corner_radius=12)
+        # Highlight best panel with border
+        if service == self._best_service and not is_original and service != "ai_improved":
+            panel = ctk.CTkFrame(
+                parent, corner_radius=12, border_width=3, border_color=("#10b981", "#34d399")
+            )
+        else:
+            panel = ctk.CTkFrame(parent, corner_radius=12)
 
         # Service name header with icon
         if is_original:
@@ -935,7 +1258,29 @@ class MainWindow:
             font=ctk.CTkFont(size=14, weight="bold"),
             text_color=fg_color,
         )
-        header.pack(anchor="w")
+        header.pack(side="left", anchor="w")
+
+        # Add rating badge if evaluation exists
+        if service in self._evaluations and not is_original and service != "ai_improved":
+            eval_result = self._evaluations[service]
+
+            # Score badge in header
+            score_badge = ctk.CTkLabel(
+                header_frame,
+                text=f"⭐ {eval_result.score:.1f}",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color=self._get_score_text_color(eval_result.score),
+            )
+            score_badge.pack(side="right", padx=10)
+
+            # Best badge
+            if service == self._best_service:
+                best_badge = ctk.CTkLabel(
+                    header_frame,
+                    text="🏆",
+                    font=ctk.CTkFont(size=14),
+                )
+                best_badge.pack(side="right", padx=5)
 
         # Stats
         stats_text = f"📊 {len(text):,} chars  •  {len(text.split()):,} words"
@@ -1001,9 +1346,13 @@ class MainWindow:
         self._current_text = ""
         self._original_text = ""
         self._translations = {}
+        self._evaluations = {}
+        self._ai_improved_translation = ""
+        self._best_service = ""
         self.file_drop.clear()
         self.progress.reset()
         self.compare_button.configure(state="disabled")
+        self.evaluate_button.configure(state="disabled")
         self._update_results()
         # Switch back to results tab
         self.results_tabview.set("📝 Results")
@@ -1264,6 +1613,138 @@ class MainWindow:
             return "break"
 
         textbox._textbox.bind("<Key>", on_key)  # type: ignore[attr-defined]
+
+    def _start_evaluation(self) -> None:
+        from tkinter import messagebox
+
+        if not self._translations or not self._original_text:
+            messagebox.showwarning("No Translations", "Please translate text first")
+            return
+
+        evaluator_service = self.settings.get("ai_evaluator_service", "")
+        if not evaluator_service or evaluator_service not in self.translator.services:
+            messagebox.showerror(
+                "AI Evaluator Not Configured",
+                "Please select an AI Evaluator service in Settings\n\n"
+                "Go to Settings > AI Evaluation Settings and choose a service\n"
+                "(OpenAI, Claude, Groq, or LocalAI)",
+            )
+            return
+
+        llm_service = self.translator.services[evaluator_service]
+        self._ai_evaluator = AIEvaluator(llm_service)
+
+        self.evaluate_button.configure(state="disabled", text="🤖 Evaluating...")
+        self.translate_button.configure(state="disabled")
+        self.compare_button.configure(state="disabled")
+        self.progress.set_status("Evaluating translations...")
+
+        is_renpy = self._current_file and self._current_file.endswith(".rpy")
+
+        thread = threading.Thread(
+            target=self._run_evaluation,
+            args=(is_renpy,),
+            daemon=True,
+        )
+        thread.start()
+
+    def _run_evaluation(self, is_renpy: bool) -> None:
+        try:
+            source_lang = self.source_lang_var.get()
+            target_lang = self.target_lang_var.get()
+
+            results = self._ai_evaluator.evaluate_translations(  # type: ignore[union-attr]
+                original_text=self._original_text,
+                translations=self._translations,
+                source_lang=source_lang,
+                target_lang=target_lang,
+                is_renpy=is_renpy,
+            )
+
+            self._evaluations = {
+                service: result
+                for service, result in results.items()
+                if isinstance(result, EvaluationResult)
+            }
+
+            self._ai_improved_translation = results.get("ai_improved", "")  # type: ignore[assignment]
+
+            if self._evaluations:
+                self._best_service = max(self._evaluations.items(), key=lambda x: x[1].score)[0]
+
+            self.root.after(0, self._on_evaluation_complete)
+
+        except Exception as e:
+            error_msg = f"Evaluation failed: {str(e)}"
+            self.root.after(0, lambda: self._on_evaluation_error(error_msg))
+
+    def _on_evaluation_complete(self) -> None:
+        self.evaluate_button.configure(state="normal", text="🤖 Evaluate All")
+        self.translate_button.configure(state="normal")
+        self.compare_button.configure(state="normal")
+        self.progress.reset()
+
+        self._update_results()
+        self._update_comparison_tab()
+        self._update_ai_eval_tab()
+
+        avg_score = sum(e.score for e in self._evaluations.values()) / len(self._evaluations)
+        self._status(f"✅ Evaluation complete! Average score: {avg_score:.1f}/10")
+
+        if self._ai_improved_translation:
+            self._translations["ai_improved"] = self._ai_improved_translation
+
+        # Switch to AI Evaluation tab to show results
+        self.results_tabview.set("🤖 AI Evaluation")
+
+        # Update history with evaluation data
+        if self._evaluations:
+            evaluations_dict = {
+                service: {
+                    "score": result.score,
+                    "explanation": result.explanation,
+                    "timestamp": result.timestamp,
+                }
+                for service, result in self._evaluations.items()
+            }
+
+            file_name = Path(self._current_file).name if self._current_file else ""
+            self.history.add_entry(
+                self._original_text,
+                self._translations,
+                self.source_lang_var.get(),
+                self.target_lang_var.get(),
+                file_name,
+                evaluations=evaluations_dict,
+                ai_improved=self._ai_improved_translation,
+                best_service=self._best_service,
+            )
+
+    def _on_evaluation_error(self, error: str) -> None:
+        from tkinter import messagebox
+
+        self.evaluate_button.configure(state="normal", text="🤖 Evaluate All")
+        self.translate_button.configure(state="normal")
+        self.compare_button.configure(state="normal")
+        self.progress.reset()
+        messagebox.showerror("Evaluation Error", error)
+        self._status(f"Evaluation error: {error}")
+
+    def _get_rating_color(self, score: float) -> tuple[str, str]:
+        if score < 5.0:
+            return ("#fee2e2", "#991b1b")
+        elif score < 7.0:
+            return ("#fef3c7", "#92400e")
+        else:
+            return ("#d1fae5", "#065f46")
+
+    def _get_score_text_color(self, score: float) -> tuple[str, str]:
+        if score < 5.0:
+            return ("#dc2626", "#ef4444")
+        elif score < 7.0:
+            return ("#d97706", "#f59e0b")
+        else:
+            return ("#10b981", "#34d399")
 
     def _status(self, message: str) -> None:
         self.status_label.configure(text=message)

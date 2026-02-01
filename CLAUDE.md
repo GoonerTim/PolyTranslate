@@ -6,14 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **PolyTranslate** - Modern desktop translation application with beautiful UI and support for 9 translation services (DeepL FREE, Google FREE, Yandex FREE, OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI) and 9 file formats (TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, MD, Ren'Py). Built with Python 3.10+ and CustomTkinter GUI.
 
-### Key Features (v2.2)
+### Key Features (v2.3)
 - **🆓 FREE Translation**: DeepL, Google, and Yandex work without API keys using unofficial public APIs
 - **🎨 Modern UI**: Completely redesigned interface with gradients, icons, animations, and card-based layout
-- **📑 Tabbed Interface**: All features in one window - Results, Comparison, History, Glossary tabs
+- **📑 Tabbed Interface**: All features in one window - Results, Comparison, AI Evaluation, History, Glossary tabs
 - **✏️ Editable Translations**: All translation text areas are fully editable with auto-save
 - **📄 Original Comparison**: View source text alongside translations in comparison tab
 - **🚀 Fast & Parallel**: Multi-threaded translation with real-time progress tracking
 - **📊 Service Comparison**: Compare original + translations from multiple services side-by-side in grid layout
+- **🤖 AI-Powered Evaluation**: Rate translation quality with scores (0-10), explanations, and AI-generated improvements
 
 ## Common Commands
 
@@ -83,6 +84,31 @@ User Input (File/Text)
   → Glossary.apply() [Post-processing term replacement]
   → Display in GUI tabs
 ```
+
+### AI Evaluation Flow (v2.3)
+```
+User clicks "🤖 Evaluate All"
+  → AIEvaluator.evaluate_translations()
+      → LLM Service generates evaluation for each translation
+          → Returns: scores (0-10), explanations, strengths/weaknesses
+      → LLM Service generates improved translation
+          → Combines best aspects of all translations
+          → Preserves Ren'Py structure if applicable
+  → Store evaluations in _evaluations dict
+  → Identify best service by highest score
+  → Update UI:
+      → Results tab: Show rating frames with scores/explanations/badges
+      → Comparison tab: Show score badges and highlight best with border
+      → AI Evaluation tab: Show detailed report with improved translation
+  → Save to history with evaluation data
+```
+
+**Key Components:**
+- **AIEvaluator** (`app/services/ai_evaluator.py`): Dedicated service for translation quality evaluation
+- **EvaluationResult**: Dataclass storing score, explanation, timestamp, strengths/weaknesses
+- **LLM Backend**: User-configurable (OpenAI/Claude/Groq/LocalAI) via Settings
+- **Ren'Py Preservation**: Special handling to maintain game file structure in improved translations
+- **UI Integration**: Ratings displayed in Results, Comparison, and dedicated AI Evaluation tabs
 
 ### Service Architecture Pattern
 
@@ -181,6 +207,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 **Configuration**:
 - **`app/config/settings.py`**: JSON persistence, API key management, config deep merge
+  - Includes AI evaluator settings: `ai_evaluator_service`, `ai_evaluator_model`, `ai_evaluation_auto`
 - **`app/config/languages.py`**: Language code mappings for different services (DeepL uses uppercase codes, ChatGPT Proxy has special mappings)
 
 **Services** (with FREE API support):
@@ -193,12 +220,17 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 - **`app/services/openrouter.py`**: OpenRouter (requires API key)
 - **`app/services/chatgpt_proxy.py`**: ChatGPT Proxy (no key required)
 - **`app/services/localai.py`**: LocalAI (self-hosted)
+- **`app/services/ai_evaluator.py`**: AI-powered translation evaluation (v2.3)
+  - Uses any LLM service (OpenAI/Claude/Groq/LocalAI) as backend
+  - Generates scores (0-10), explanations, and improved translations
+  - Preserves Ren'Py structure in improved translations
 
 **Modern UI** (excluded from test coverage):
 - **`app/gui/main_window.py`**: Main window with integrated tabbed interface
-  - 4 main tabs: Results, Comparison, History, Glossary
+  - 5 main tabs: Results, Comparison, AI Evaluation, History, Glossary
   - Manages all UI content and tab switching
   - Modern card-based layout, icon system, minimal docstrings
+  - AI Evaluation tab shows detailed ratings and improved translation
 - **`app/gui/widgets/file_drop.py`**: Modern drag-drop zone with visual feedback
 - **`app/gui/widgets/progress.py`**: Modern horizontal progress bar
 - **`app/gui/settings_dialog.py`**: Settings dialog with API key configuration (still a popup for focused configuration)
@@ -210,7 +242,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 ### Testing Strategy
 
-**249 tests, 89% coverage** (GUI excluded)
+**268 tests, 90% coverage** (GUI excluded)
 
 - **Service Tests**: Mock HTTP with `responses` library. Example pattern:
   ```python
@@ -225,6 +257,15 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
   - Test fallback from paid to free API on error
   - Mock both paid and free API endpoints
 
+- **AI Evaluator Tests** (`tests/test_ai_evaluator.py`): Comprehensive evaluation testing
+  - Test evaluation result dataclass creation
+  - Test evaluation with various LLM responses (JSON, markdown code blocks)
+  - Test score clamping (0-10 range)
+  - Test Ren'Py structure preservation in improved translations
+  - Test error handling (evaluation failures, improvement failures)
+  - Test prompt generation for evaluation and improvement
+  - 19 tests with 97% coverage of ai_evaluator.py
+
 - **Integration Tests** (`tests/test_integration.py`): End-to-end workflows including file→process→translate→save, parallel processing, error handling, progress callbacks.
 
 - **File Format Tests** (`tests/test_file_processor_formats.py`): Create actual files in-memory (PyPDF2, python-docx, python-pptx, pandas), test extraction.
@@ -234,9 +275,9 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 ### Configuration Files
 
 Runtime config (gitignored):
-- **`config.json`**: API keys, theme, chunk_size, max_workers, selected_services
+- **`config.json`**: API keys, theme, chunk_size, max_workers, selected_services, ai_evaluator_service
 - **`glossary.json`**: User term dictionary
-- **`history.json`**: Translation history
+- **`history.json`**: Translation history (v2.3: includes evaluation scores, explanations, ai_improved, best_service)
 
 ## Adding New Features
 
@@ -298,7 +339,7 @@ Runtime config (gitignored):
 
 - **API Key Security**: Never commit `config.json`. Keys stored locally only.
 
-- **Coverage Target**: 70% minimum (pyproject.toml), currently 89%. GUI excluded from coverage (`app/gui/*` omitted).
+- **Coverage Target**: 70% minimum (pyproject.toml), currently 90%. GUI excluded from coverage (`app/gui/*` omitted).
 
 - **Ruff Configuration**: Line length 100, ignores E501 (line too long), uses modern Python features (UP rules).
 
@@ -306,22 +347,116 @@ Runtime config (gitignored):
 
 - **UI Design**: Modern card-based layout with emoji icons. Color scheme uses blue (#2563eb) for primary, green (#10b981) for success, red (#ef4444) for errors.
 
-## UI Workflow (v2.2)
+## AI Evaluation Feature (v2.3)
+
+### Overview
+AI-powered translation quality evaluation system that analyzes multiple translations, provides numerical scores (0-10) with explanations, highlights the best translation, and optionally generates an improved combined translation.
+
+### Configuration
+
+**Settings:**
+1. Open Settings (⚙️ button in menu)
+2. Navigate to "AI Evaluation Settings" section
+3. Select AI Evaluator Service:
+   - **OpenAI**: Uses GPT models (requires API key)
+   - **Claude**: Uses Anthropic's Claude (requires API key)
+   - **Groq**: Fast inference (requires API key)
+   - **LocalAI**: Self-hosted, privacy-focused (requires server URL)
+4. Leave empty to disable AI evaluation feature
+
+**Required Setup:**
+- At least one LLM service must be configured
+- Service must have valid API key (except LocalAI which uses server URL)
+- Evaluation uses the same API key as translation for that service
+
+### Usage Workflow
+
+1. **Translate Text**: Complete a translation with one or more services
+2. **Click "🤖 Evaluate All"**: Button appears after translation (only if AI evaluator configured)
+3. **Wait for Evaluation**: Progress bar shows "Evaluating translations..."
+4. **View Results**: Automatically switches to AI Evaluation tab showing:
+   - Summary statistics (number of translations, best service, average score)
+   - Detailed evaluations for each service with scores and explanations
+   - AI-generated improved translation (editable, copyable, saveable)
+
+### UI Display
+
+**Results Tab** (after evaluation):
+- Each service tab shows rating frame with:
+  - ⭐ Score (0-10)
+  - Brief explanation of quality
+  - 🏆 BEST badge for highest-rated translation
+  - Color-coded background (green: 7+, yellow: 5-7, red: <5)
+
+**Comparison Tab** (after evaluation):
+- Score badges in panel headers
+- 🏆 icon for best translation
+- Green border highlighting best translation panel
+
+**AI Evaluation Tab**:
+- Summary statistics section
+- Detailed evaluation cards (sorted by score, descending)
+- Improved translation section with editable text area
+- Copy and Save buttons for improved translation
+
+### Evaluation Criteria
+
+LLM evaluates each translation based on:
+- **Accuracy**: Faithfulness to original meaning
+- **Fluency**: Natural language flow
+- **Naturalness**: Idiomatic expressions, cultural appropriateness
+
+Scores are automatically clamped to 0-10 range.
+
+### Ren'Py File Support
+
+Special handling for Ren'Py game files (`.rpy`):
+- AI evaluator detects Ren'Py dialogue patterns
+- Improved translation preserves:
+  - Label declarations (`label start:`)
+  - Character names
+  - Indentation levels
+  - Dialogue quote markers (`"..."`)
+- Ensures translated game files remain syntactically valid
+
+### History Integration
+
+Evaluations are automatically saved to history:
+- Scores and explanations persist across sessions
+- AI-improved translation stored separately
+- Best service marked for quick reference
+- Load from history restores all evaluation data
+
+### Performance Notes
+
+- Evaluation requires 2 LLM calls: one for ratings, one for improvement
+- Expected time: 5-15 seconds depending on LLM service speed
+- LocalAI typically slower but more private
+- Costs token usage (see LLM service pricing)
+
+## UI Workflow (v2.3)
 
 ### Navigation Flow
 1. User clicks menu button (📜 History, 📚 Glossary) → switches to that tab
 2. "📊 Compare" button → switches to Comparison tab
-3. Clicking history card → loads translation + original text and switches to Results tab
-4. All tabs accessible via direct clicking on tab headers
+3. "🤖 Evaluate All" button → evaluates translations and switches to AI Evaluation tab
+4. Clicking history card → loads translation + original text + evaluations and switches to Results tab
+5. All tabs accessible via direct clicking on tab headers
 
 ### Tab Content Management
 - **Results Tab**: Dynamically creates service subtabs when translations complete
   - Text areas are editable with auto-save on modification
   - Edit tracking via `<<Modified>>` event binding
+  - Shows rating frames with scores/explanations if evaluations exist
 - **Comparison Tab**: Regenerates grid layout when translations update
   - Shows original text (if available) as first panel
   - Translation panels are editable
   - Grid adapts to N+1 panels (original + translations)
+  - Displays score badges and best service highlighting
+- **AI Evaluation Tab**: Shows detailed evaluation report
+  - Summary statistics (evaluated count, best service, average score)
+  - Detailed evaluation cards sorted by score
+  - AI-improved translation with edit/copy/save capabilities
 - **History Tab**: Refreshes card list when history changes
 - **Glossary Tab**: Maintains entry widgets state, saves on button click
 

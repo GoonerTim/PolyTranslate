@@ -34,6 +34,9 @@ class Settings:
         "target_language": "ru",
         "selected_services": ["deepl"],
         "window_geometry": "1200x800",
+        "ai_evaluator_service": "",
+        "ai_evaluator_model": "",
+        "ai_evaluation_auto": False,
     }
 
     def __init__(self, config_path: str | Path | None = None) -> None:

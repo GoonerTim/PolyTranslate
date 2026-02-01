@@ -53,6 +53,9 @@ class TranslationHistory:
         source_lang: str,
         target_lang: str,
         file_name: str = "",
+        evaluations: dict[str, Any] | None = None,
+        ai_improved: str = "",
+        best_service: str = "",
     ) -> None:
         """Add a new history entry."""
         entry = {
@@ -63,6 +66,15 @@ class TranslationHistory:
             "source_text": source_text[:500],  # Store preview
             "translations": {k: v[:500] for k, v in translations.items()},
         }
+
+        # Add evaluation data if provided
+        if evaluations:
+            entry["evaluations"] = evaluations
+        if ai_improved:
+            entry["ai_improved"] = ai_improved[:500]
+        if best_service:
+            entry["best_service"] = best_service
+
         self._entries.insert(0, entry)
 
         # Keep only last 100 entries
