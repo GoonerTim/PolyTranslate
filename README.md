@@ -339,7 +339,7 @@ Built with:
 
 ## 📮 Contact
 
-Project Link: [https://github.com/GoonerTim/polytranslate](https://github.com/GoonerTim/polytranslate)
+Project Link: [https://github.com/GoonerTim/PolyTranslate](https://github.com/GoonerTim/polytranslate)
 
 ---
 
