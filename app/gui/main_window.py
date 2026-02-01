@@ -69,7 +69,7 @@ class MainWindow:
         ctk.set_default_color_theme("blue")
 
         self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(1, weight=1)
+        self.root.rowconfigure(2, weight=1)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _create_widgets(self) -> None:
@@ -311,10 +311,7 @@ class MainWindow:
     def _create_main_content(self) -> None:
 
         content = ctk.CTkFrame(self.root, corner_radius=0)
-        content.grid(row=1, column=0, sticky="nsew", padx=0, pady=(0, 0))
-
-        # Configure to fill space
-        self.root.rowconfigure(1, weight=1)
+        content.grid(row=2, column=0, sticky="nsew", padx=0, pady=(0, 0))
 
         # Inner container with padding
         inner = ctk.CTkFrame(content, fg_color="transparent")
@@ -366,7 +363,7 @@ class MainWindow:
     def _create_status_bar(self) -> None:
 
         status_frame = ctk.CTkFrame(self.root, height=35, corner_radius=0)
-        status_frame.grid(row=2, column=0, sticky="ew", padx=0, pady=0)
+        status_frame.grid(row=3, column=0, sticky="ew", padx=0, pady=0)
 
         # Status indicator
         self.status_indicator = ctk.CTkLabel(
