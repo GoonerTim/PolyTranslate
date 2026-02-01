@@ -1,0 +1,5 @@
+Hello, world!
+This is a sample text file for testing.
+It contains multiple lines of text.
+
+The translator should handle this file correctly.
