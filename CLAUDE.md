@@ -4,7 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**PolyTranslate** - Desktop translation application with support for 9 translation services (DeepL, Google, Yandex, OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI) and 9 file formats (TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, MD, Ren'Py). Built with Python 3.10+ and CustomTkinter GUI.
+**PolyTranslate** - Modern desktop translation application with beautiful UI and support for 9 translation services (Google FREE, Yandex FREE, DeepL, OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI) and 9 file formats (TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, MD, Ren'Py). Built with Python 3.10+ and CustomTkinter GUI.
+
+### Key Features (v2.0)
+- **🆓 FREE Translation**: Google and Yandex work without API keys using unofficial public APIs
+- **🎨 Modern UI**: Completely redesigned interface with gradients, icons, animations, and card-based layout
+- **🚀 Fast & Parallel**: Multi-threaded translation with real-time progress tracking
+- **📊 Service Comparison**: Compare translations from multiple services side-by-side
 
 ## Common Commands
 
@@ -91,7 +97,12 @@ class TranslationService(ABC):
     def get_name(self) -> str
 ```
 
-Services are **dynamically initialized** in `Translator._initialize_services()` based on API keys in settings. Only configured services are loaded.
+Services are **dynamically initialized** in `Translator._initialize_services()`.
+
+**Important:** Google and Yandex services are **always initialized** (even without API keys) because they support free unofficial APIs as fallback:
+- If API key exists: tries paid API first, falls back to free API on failure
+- If no API key: uses free API directly
+- `is_configured()` always returns `True` for these services
 
 ### Key Architectural Decisions
 
@@ -105,6 +116,29 @@ Services are **dynamically initialized** in `Translator._initialize_services()` 
 
 5. **GUI-Core Separation**: GUI (`app/gui/`) is completely decoupled from core logic (`app/core/`). Communication via callbacks and threading to prevent UI freezing.
 
+6. **Free API Fallback**: Google and Yandex services implement automatic fallback to unofficial free APIs when API key is missing or paid API fails. This provides zero-configuration translation capability.
+
+### Modern UI Design (v2.0)
+
+**Design Philosophy**: Clean, minimal code with modern visual design. Docstrings removed from internal methods for brevity.
+
+**Key UI Components**:
+- **Card-based Layout**: Modern rounded corners, shadows, and spacing
+- **Icon System**: Emoji-based service icons (🔷 DeepL, 🟣 Yandex, 🔴 Google, etc.)
+- **Color Palette**:
+  - Primary: `#2563eb` (blue)
+  - Success: `#10b981` (green)
+  - Error: `#ef4444` (red)
+- **Interactive Feedback**: Hover effects, drag-drop visual states, smooth transitions
+- **Progress Visualization**: Modern horizontal progress bar with percentage and status
+- **Empty States**: Beautiful placeholders with helpful messages and large icons
+
+**UI Architecture**:
+- `MainWindow`: Main application window, orchestrates all UI components
+- `FileDropZone`: Modern drag-drop widget with visual feedback (green highlight on drag, success/error states)
+- `ProgressBar`: Horizontal progress indicator with status and percentage
+- All widgets use minimal docstrings, clean code structure
+
 ### File Processing Strategy
 
 `FileProcessor` uses a **strategy pattern** with format-specific static methods:
@@ -115,18 +149,41 @@ Services are **dynamically initialized** in `Translator._initialize_services()` 
 
 ### Module Responsibilities
 
+**Core Logic**:
 - **`app/core/translator.py`**: Orchestrates entire translation workflow, manages service lifecycle
 - **`app/core/file_processor.py`**: File format handling (9 formats), encoding detection, content extraction
 - **`app/core/language_detector.py`**: Wrapper around langdetect with availability checks
+
+**Configuration**:
 - **`app/config/settings.py`**: JSON persistence, API key management, config deep merge
 - **`app/config/languages.py`**: Language code mappings for different services (DeepL uses uppercase codes, ChatGPT Proxy has special mappings)
+
+**Services** (with FREE API support):
+- **`app/services/google.py`**: Google Translate - **FREE mode** (unofficial API) + paid API with fallback
+- **`app/services/yandex.py`**: Yandex Translate - **FREE mode** (unofficial API) + paid API with fallback
+- **`app/services/deepl.py`**: DeepL (requires API key)
+- **`app/services/openai_service.py`**: OpenAI GPT (requires API key)
+- **`app/services/claude.py`**: Claude AI (requires API key)
+- **`app/services/groq_service.py`**: Groq (requires API key)
+- **`app/services/openrouter.py`**: OpenRouter (requires API key)
+- **`app/services/chatgpt_proxy.py`**: ChatGPT Proxy (no key required)
+- **`app/services/localai.py`**: LocalAI (self-hosted)
+
+**Modern UI** (excluded from test coverage):
+- **`app/gui/main_window.py`**: Main window with modern card-based layout, icon system, minimal docstrings
+- **`app/gui/widgets/file_drop.py`**: Modern drag-drop zone with visual feedback
+- **`app/gui/widgets/progress.py`**: Modern horizontal progress bar
+- **`app/gui/settings_dialog.py`**: Settings dialog with API key configuration
+- **`app/gui/comparison_view.py`**: Side-by-side translation comparison
+- **`app/gui/history_view.py`**: Translation history viewer
+- **`app/gui/glossary_view.py`**: Glossary editor
+
+**Utilities**:
 - **`app/utils/glossary.py`**: Term dictionary with post-processing replacement, JSON persistence
-- **`app/services/`**: 9 service implementations + base class
-- **`app/gui/`**: CustomTkinter UI (excluded from test coverage)
 
 ### Testing Strategy
 
-**226 tests, 90% coverage** (GUI excluded)
+**230 tests, 89% coverage** (GUI excluded)
 
 - **Service Tests**: Mock HTTP with `responses` library. Example pattern:
   ```python
@@ -135,6 +192,11 @@ Services are **dynamically initialized** in `Translator._initialize_services()` 
       responses.add(responses.POST, "https://api.url", json={...})
       result = service.translate("text", "en", "ru")
   ```
+
+- **Free API Tests**: Test fallback mechanism for Google and Yandex
+  - Test free API when no key provided
+  - Test fallback from paid to free API on error
+  - Mock both paid and free API endpoints
 
 - **Integration Tests** (`tests/test_integration.py`): End-to-end workflows including file→process→translate→save, parallel processing, error handling, progress callbacks.
 
@@ -153,6 +215,7 @@ Runtime config (gitignored):
 
 ### Add Translation Service
 
+**Standard Service (requires API key)**:
 1. Create `app/services/newservice.py`:
    ```python
    from app.services.base import TranslationService
@@ -172,11 +235,19 @@ Runtime config (gitignored):
            return "New Service"
    ```
 
+**Service with Free API Fallback** (like Google/Yandex):
+1. Implement `_translate_with_api_key()` and `_translate_free()` methods
+2. `translate()` tries paid API first, falls back to free on error
+3. `is_configured()` always returns `True`
+4. `get_name()` returns service name + " (Free)" suffix when no API key
+
 2. Register in `app/services/__init__.py`
 
-3. Add initialization in `Translator._initialize_services()`
+3. Add initialization in `Translator._initialize_services()`:
+   - For standard services: only initialize if API key exists
+   - For free-capable services: always initialize
 
-4. Create `tests/services/test_newservice.py` with mocked HTTP
+4. Create `tests/services/test_newservice.py` with mocked HTTP for both APIs
 
 ### Add File Format
 
@@ -190,26 +261,99 @@ Runtime config (gitignored):
 
 ## Important Notes
 
+- **Code Style**: Minimal docstrings in internal methods. Public APIs have brief docstrings. Comments removed for clean code. Type hints used throughout.
+
+- **Free Translation**: Google and Yandex work immediately without API keys. Uses unofficial public APIs. May have rate limits or break if APIs change.
+
 - **Type Checking**: Mypy reports ~36 warnings mostly from CustomTkinter (uses `Any` types). This is expected and acceptable.
 
 - **NLTK Data**: Downloaded at runtime in `main.py` if missing. Tests handle missing NLTK gracefully.
 
 - **API Key Security**: Never commit `config.json`. Keys stored locally only.
 
-- **Coverage Target**: 70% minimum (pyproject.toml), currently 90%. GUI excluded from coverage (`app/gui/*` omitted).
+- **Coverage Target**: 70% minimum (pyproject.toml), currently 89%. GUI excluded from coverage (`app/gui/*` omitted).
 
 - **Ruff Configuration**: Line length 100, ignores E501 (line too long), uses modern Python features (UP rules).
 
 - **Language Code Mappings**: Different services use different codes (e.g., DeepL uses "EN" uppercase, ChatGPT Proxy uses "zh-CN"). See `app/config/languages.py` for mappings.
 
+- **UI Design**: Modern card-based layout with emoji icons. Color scheme uses blue (#2563eb) for primary, green (#10b981) for success, red (#ef4444) for errors.
+
 ## Known Quirks
 
-1. **Ren'Py Processing**: `read_rpy()` extracts dialogue using regex. Reconstruction in `reconstruct_rpy()` uses default parameters in closures to avoid variable binding issues (B007 lint rule).
+1. **Free API Reliability**: Google and Yandex free APIs are unofficial and may:
+   - Have undocumented rate limits
+   - Change without notice (breaking compatibility)
+   - Be blocked in some regions
+   - Paid API keys recommended for production use
 
-2. **Chinese Language Detection**: Returns `zh`, `zh-cn`, or `zh-tw` depending on langdetect confidence. Services handle mapping.
+2. **Ren'Py Processing**: `read_rpy()` extracts dialogue using regex. Reconstruction in `reconstruct_rpy()` uses default parameters in closures to avoid variable binding issues (B007 lint rule).
 
-3. **Parallel Translation Errors**: If a service fails during parallel translation, error message stored in results dict instead of raising exception (allows partial success).
+3. **Chinese Language Detection**: Returns `zh`, `zh-cn`, or `zh-tw` depending on langdetect confidence. Services handle mapping.
 
-4. **GUI Threading**: All long-running operations must use `threading.Thread` with `root.after()` callbacks to update UI from main thread.
+4. **Parallel Translation Errors**: If a service fails during parallel translation, error message stored in results dict instead of raising exception (allows partial success).
 
-5. **PyPDF2 Deprecation**: Uses PyPDF2 (deprecated) but functional. Warning suppressed in tests. Migration to pypdf planned but not urgent.
+5. **GUI Threading**: All long-running operations must use `threading.Thread` with `root.after()` callbacks to update UI from main thread.
+
+6. **PyPDF2 Deprecation**: Uses PyPDF2 (deprecated) but functional. Warning suppressed in tests. Migration to pypdf planned but not urgent.
+
+7. **Minimal Docstrings**: Internal methods have no docstrings for clean code. Only public APIs documented. Use type hints and clear method names for self-documentation.
+
+## UI Development Guidelines
+
+### Modern Design Principles
+
+**Color System**:
+```python
+# Primary colors
+PRIMARY = ("#2563eb", "#1e40af")  # Blue (light, dark)
+SUCCESS = ("#10b981", "#34d399")  # Green
+ERROR = ("#ef4444", "#dc2626")    # Red
+NEUTRAL = ("gray70", "gray30")    # Gray
+
+# Usage
+button = ctk.CTkButton(fg_color=PRIMARY, hover_color=("#1d4ed8", "#1e3a8a"))
+```
+
+**Icon System**:
+- Use emoji icons for visual appeal
+- Each service has unique icon: 🔷 DeepL, 🟣 Yandex, 🔴 Google, 🤖 OpenAI, etc.
+- Functional icons: 📂 Open, ⚙️ Settings, 🚀 Translate, etc.
+
+**Layout Patterns**:
+- **Card-based**: Use `CTkFrame` with `corner_radius=12` for content grouping
+- **Spacing**: Consistent padding (15-20px for cards, 5-10px for elements)
+- **Typography**: Bold titles (size 14-16), regular text (size 12-13), small labels (size 11)
+
+**Interactive Feedback**:
+- Hover effects on buttons
+- Color changes on drag-drop (green for valid, red for error)
+- Progress indicators with percentage
+- Empty states with helpful messages
+
+### Adding UI Components
+
+When adding new UI widgets:
+1. Keep code clean - no verbose docstrings
+2. Use type hints for parameters
+3. Follow the color system and icon patterns
+4. Ensure responsive layout (fill="both", expand=True)
+5. Add visual feedback for user actions
+6. Use `corner_radius` for modern look (8-15px)
+
+Example:
+```python
+def _create_modern_button(self) -> None:
+    button = ctk.CTkButton(
+        self.parent,
+        text="🚀 Action",
+        command=self._on_action,
+        width=150,
+        height=40,
+        corner_radius=10,
+        font=ctk.CTkFont(size=14, weight="bold"),
+        fg_color=("#2563eb", "#1e40af"),
+        hover_color=("#1d4ed8", "#1e3a8a"),
+    )
+    button.pack(padx=10, pady=10)
+```

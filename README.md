@@ -337,7 +337,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🐛 Bug Reports & Feature Requests
 
-Please use [GitHub Issues](https://github.com/yourusername/polytranslate/issues) to report bugs or request features.
+Please use [GitHub Issues](https://github.com/GoonerTim/PolyTranslate/issues) to report bugs or request features.
 
 When reporting bugs, please include:
 - Python version
