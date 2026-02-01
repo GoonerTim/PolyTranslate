@@ -76,12 +76,11 @@ class Translator:
         """Initialize all translation services."""
         api_keys = self.settings.get_api_keys()
 
-        # DeepL
-        if api_keys.get("deepl"):
-            self.services["deepl"] = DeepLService(
-                api_key=api_keys["deepl"],
-                is_free_plan=self.settings.get("deepl_plan", "free") == "free",
-            )
+        # DeepL (always available - uses free API if no key)
+        self.services["deepl"] = DeepLService(
+            api_key=api_keys.get("deepl", ""),
+            is_free_plan=self.settings.get("deepl_plan", "free") == "free",
+        )
 
         # Yandex (always available - uses free API if no key)
         self.services["yandex"] = YandexService(api_key=api_keys.get("yandex", ""))

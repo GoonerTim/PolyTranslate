@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**PolyTranslate** - Modern desktop translation application with beautiful UI and support for 9 translation services (Google FREE, Yandex FREE, DeepL, OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI) and 9 file formats (TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, MD, Ren'Py). Built with Python 3.10+ and CustomTkinter GUI.
+**PolyTranslate** - Modern desktop translation application with beautiful UI and support for 9 translation services (DeepL FREE, Google FREE, Yandex FREE, OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI) and 9 file formats (TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, MD, Ren'Py). Built with Python 3.10+ and CustomTkinter GUI.
 
 ### Key Features (v2.1)
-- **🆓 FREE Translation**: Google and Yandex work without API keys using unofficial public APIs
+- **🆓 FREE Translation**: DeepL, Google, and Yandex work without API keys using unofficial public APIs
 - **🎨 Modern UI**: Completely redesigned interface with gradients, icons, animations, and card-based layout
 - **📑 Tabbed Interface**: All features in one window - Results, Comparison, History, Glossary tabs
 - **🚀 Fast & Parallel**: Multi-threaded translation with real-time progress tracking
@@ -100,7 +100,7 @@ class TranslationService(ABC):
 
 Services are **dynamically initialized** in `Translator._initialize_services()`.
 
-**Important:** Google and Yandex services are **always initialized** (even without API keys) because they support free unofficial APIs as fallback:
+**Important:** DeepL, Google, and Yandex services are **always initialized** (even without API keys) because they support free unofficial APIs as fallback:
 - If API key exists: tries paid API first, falls back to free API on failure
 - If no API key: uses free API directly
 - `is_configured()` always returns `True` for these services
@@ -117,7 +117,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 5. **GUI-Core Separation**: GUI (`app/gui/`) is completely decoupled from core logic (`app/core/`). Communication via callbacks and threading to prevent UI freezing.
 
-6. **Free API Fallback**: Google and Yandex services implement automatic fallback to unofficial free APIs when API key is missing or paid API fails. This provides zero-configuration translation capability.
+6. **Free API Fallback**: DeepL, Google, and Yandex services implement automatic fallback to unofficial free APIs when API key is missing or paid API fails. This provides zero-configuration translation capability.
 
 ### Modern UI Design (v2.1)
 
@@ -174,9 +174,9 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 - **`app/config/languages.py`**: Language code mappings for different services (DeepL uses uppercase codes, ChatGPT Proxy has special mappings)
 
 **Services** (with FREE API support):
+- **`app/services/deepl.py`**: DeepL - **FREE mode** (unofficial JSON-RPC API) + paid API with fallback
 - **`app/services/google.py`**: Google Translate - **FREE mode** (unofficial API) + paid API with fallback
 - **`app/services/yandex.py`**: Yandex Translate - **FREE mode** (unofficial API) + paid API with fallback
-- **`app/services/deepl.py`**: DeepL (requires API key)
 - **`app/services/openai_service.py`**: OpenAI GPT (requires API key)
 - **`app/services/claude.py`**: Claude AI (requires API key)
 - **`app/services/groq_service.py`**: Groq (requires API key)
@@ -200,7 +200,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 ### Testing Strategy
 
-**230 tests, 89% coverage** (GUI excluded)
+**248 tests, 90% coverage** (GUI excluded)
 
 - **Service Tests**: Mock HTTP with `responses` library. Example pattern:
   ```python
@@ -210,7 +210,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
       result = service.translate("text", "en", "ru")
   ```
 
-- **Free API Tests**: Test fallback mechanism for Google and Yandex
+- **Free API Tests**: Test fallback mechanism for DeepL, Google, and Yandex
   - Test free API when no key provided
   - Test fallback from paid to free API on error
   - Mock both paid and free API endpoints
@@ -280,7 +280,7 @@ Runtime config (gitignored):
 
 - **Code Style**: Minimal docstrings in internal methods. Public APIs have brief docstrings. Comments removed for clean code. Type hints used throughout.
 
-- **Free Translation**: Google and Yandex work immediately without API keys. Uses unofficial public APIs. May have rate limits or break if APIs change.
+- **Free Translation**: DeepL, Google, and Yandex work immediately without API keys. Uses unofficial public APIs. May have rate limits or break if APIs change.
 
 - **Type Checking**: Mypy reports ~36 warnings mostly from CustomTkinter (uses `Any` types). This is expected and acceptable.
 
@@ -288,7 +288,7 @@ Runtime config (gitignored):
 
 - **API Key Security**: Never commit `config.json`. Keys stored locally only.
 
-- **Coverage Target**: 70% minimum (pyproject.toml), currently 89%. GUI excluded from coverage (`app/gui/*` omitted).
+- **Coverage Target**: 70% minimum (pyproject.toml), currently 90%. GUI excluded from coverage (`app/gui/*` omitted).
 
 - **Ruff Configuration**: Line length 100, ignores E501 (line too long), uses modern Python features (UP rules).
 
@@ -318,7 +318,7 @@ Runtime config (gitignored):
 
 ## Known Quirks
 
-1. **Free API Reliability**: Google and Yandex free APIs are unofficial and may:
+1. **Free API Reliability**: DeepL, Google, and Yandex free APIs are unofficial and may:
    - Have undocumented rate limits
    - Change without notice (breaking compatibility)
    - Be blocked in some regions

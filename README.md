@@ -3,7 +3,7 @@ mm# PolyTranslate
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-245%20passed-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-248%20passed-brightgreen.svg)
 ![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
@@ -21,9 +21,9 @@ PolyTranslate is a feature-rich desktop translation application with a **stunnin
 
 ### ✨ Key Features
 
-- **9 Translation Services**: DeepL, Google (FREE), Yandex (FREE), OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI
+- **9 Translation Services**: DeepL (FREE), Google (FREE), Yandex (FREE), OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI
 - **9 File Formats**: TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, Markdown, Ren'Py scripts
-- **🆓 FREE Services**: Google and Yandex work without API keys using unofficial APIs
+- **🆓 FREE Services**: DeepL, Google, and Yandex work without API keys using unofficial APIs
 - **🎨 Modern UI**: Beautiful redesigned interface with gradients, icons, and smooth animations
 - **📑 Tabbed Interface**: All features in one window - no popup dialogs
 - **Parallel Processing**: Translate large texts in chunks with multiple workers
@@ -109,14 +109,14 @@ python main.py
 
 ### Configuration
 
-**Start translating immediately** with Google and Yandex (no API keys required)!
+**Start translating immediately** with DeepL, Google, and Yandex (no API keys required)!
 
 For other services, configure API keys in **Settings**:
 
+- **DeepL**: ✅ **Works FREE without API key** (or use official API key for higher limits)
 - **Google Translate**: ✅ **Works FREE without API key** (or use Google Cloud API for higher limits)
 - **Yandex Translate**: ✅ **Works FREE without API key** (or use Yandex Cloud API for higher limits)
 - **ChatGPT Proxy**: ✅ **No API key required** (uses proxy service)
-- **DeepL**: Get free/pro API key from [deepl.com](https://www.deepl.com/pro-api)
 - **OpenAI**: Get API key from [platform.openai.com](https://platform.openai.com)
 - **Claude AI**: Get API key from [console.anthropic.com](https://console.anthropic.com)
 - **Groq**: Register at [groq.com](https://groq.com)
@@ -154,10 +154,10 @@ Supported formats:
 
 | Service | API Key Required | Features | Languages |
 |---------|-----------------|----------|-----------|
+| **DeepL** | 🆓 **Optional** | Free API, high quality, fast | 30+ |
 | **Google Translate** | 🆓 **Optional** | Free API, comprehensive, reliable | 100+ |
 | **Yandex Translate** | 🆓 **Optional** | Free API, good for Cyrillic | 90+ |
 | **ChatGPT Proxy** | ❌ No | Free, no registration | 100+ |
-| **DeepL** | ✅ Yes | High quality, fast | 30+ |
 | **OpenAI GPT** | ✅ Yes | Context-aware, natural | All major |
 | **Claude AI** | ✅ Yes | High quality, detailed | All major |
 | **Groq** | ✅ Yes | Fast inference | All major |
@@ -168,7 +168,9 @@ Supported formats:
 
 ### 🆓 Free Services
 
-**Google** and **Yandex** now work without API keys! The application uses their unofficial public APIs when no API key is provided. If you have an API key, it will be used with automatic fallback to the free API if it fails.
+**DeepL**, **Google**, and **Yandex** now work without API keys! The application uses their unofficial public APIs when no API key is provided. If you have an API key, it will be used with automatic fallback to the free API if it fails.
+
+**Note**: Free APIs are unofficial and may have rate limits or break if the APIs change. Official API keys are recommended for production use.
 
 ---
 
@@ -271,7 +273,7 @@ class TranslationService(ABC):
 
 ## 📊 Testing
 
-- **Unit Tests**: 245 tests covering all core modules
+- **Unit Tests**: 248 tests covering all core modules
 - **Integration Tests**: End-to-end workflow testing
 - **Coverage**: 90% code coverage
 - **CI/CD Ready**: All tests automated with pytest
