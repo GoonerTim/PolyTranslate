@@ -60,8 +60,8 @@ PolyTranslate features a completely redesigned modern UI with:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/polytranslate.git
-cd polytranslate
+git clone https://github.com/GoonerTim/PolyTranslate.git
+cd PolyTranslate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -160,7 +160,7 @@ Supported formats:
 ### Project Structure
 
 ```
-polytranslate/
+PolyTranslate/
 ├── app/
 │   ├── config/          # Configuration management
 │   ├── core/            # Core translation logic
