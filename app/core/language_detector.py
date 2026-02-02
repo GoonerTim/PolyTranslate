@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 class LanguageDetector:
     """Detects the language of text content."""
 
-    # Common language codes
     SUPPORTED_LANGUAGES = {
         "en": "English",
         "ru": "Russian",
@@ -63,15 +62,6 @@ class LanguageDetector:
 
     @classmethod
     def detect(cls, text: str) -> str | None:
-        """
-        Detect the language of the given text.
-
-        Args:
-            text: The text to analyze.
-
-        Returns:
-            The ISO 639-1 language code or None if detection fails.
-        """
         if not LANGDETECT_AVAILABLE:
             return None
 
@@ -80,7 +70,6 @@ class LanguageDetector:
 
         try:
             lang = detect(text)
-            # Normalize Chinese language codes
             if lang == "zh-cn" or lang == "zh-tw":
                 return lang
             return lang
@@ -91,15 +80,6 @@ class LanguageDetector:
 
     @classmethod
     def detect_with_confidence(cls, text: str) -> list[tuple[str, float]]:
-        """
-        Detect language with confidence scores.
-
-        Args:
-            text: The text to analyze.
-
-        Returns:
-            List of (language_code, probability) tuples sorted by probability.
-        """
         if not LANGDETECT_AVAILABLE:
             return []
 
@@ -116,18 +96,8 @@ class LanguageDetector:
 
     @classmethod
     def get_language_name(cls, code: str) -> str:
-        """
-        Get the human-readable name for a language code.
-
-        Args:
-            code: ISO 639-1 language code.
-
-        Returns:
-            The language name or the code if not found.
-        """
         return cls.SUPPORTED_LANGUAGES.get(code.lower(), code)
 
     @classmethod
     def is_available(cls) -> bool:
-        """Check if language detection is available."""
         return LANGDETECT_AVAILABLE

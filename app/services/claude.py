@@ -27,19 +27,11 @@ class ClaudeService(TranslationService):
     ]
 
     def __init__(self, api_key: str = "", model: str = "claude-3-sonnet-20240229") -> None:
-        """
-        Initialize Claude service.
-
-        Args:
-            api_key: Anthropic API key.
-            model: Model to use for translation.
-        """
         self.api_key = api_key
         self.model = model
         self._client: Anthropic | None = None
 
     def _get_client(self) -> Anthropic:
-        """Get or create Anthropic client."""
         if not ANTHROPIC_AVAILABLE:
             raise ValueError("Anthropic package is not installed")
         if self._client is None:
@@ -47,7 +39,6 @@ class ClaudeService(TranslationService):
         return self._client
 
     def translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        """Translate text using Claude API."""
         if not self.is_configured():
             raise ValueError("Anthropic API key not set")
 
@@ -65,7 +56,6 @@ class ClaudeService(TranslationService):
                 max_tokens=2000,
                 messages=[{"role": "user", "content": prompt}],
             )
-            # Extract text from response
             if message.content and len(message.content) > 0:
                 return message.content[0].text.strip()
             return ""
@@ -73,9 +63,7 @@ class ClaudeService(TranslationService):
             raise ValueError(f"Claude API error: {e}") from e
 
     def is_configured(self) -> bool:
-        """Check if the service is configured."""
         return bool(self.api_key) and ANTHROPIC_AVAILABLE
 
     def get_name(self) -> str:
-        """Get the service name."""
         return f"Claude ({self.model})"

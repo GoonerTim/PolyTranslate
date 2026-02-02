@@ -26,19 +26,11 @@ class OpenAIService(TranslationService):
     ]
 
     def __init__(self, api_key: str = "", model: str = "gpt-3.5-turbo") -> None:
-        """
-        Initialize OpenAI service.
-
-        Args:
-            api_key: OpenAI API key.
-            model: Model to use for translation.
-        """
         self.api_key = api_key
         self.model = model
         self._client: OpenAI | None = None
 
     def _get_client(self) -> OpenAI:
-        """Get or create OpenAI client."""
         if not OPENAI_AVAILABLE:
             raise ValueError("OpenAI package is not installed")
         if self._client is None:
@@ -46,7 +38,6 @@ class OpenAIService(TranslationService):
         return self._client
 
     def translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        """Translate text using OpenAI API."""
         if not self.is_configured():
             raise ValueError("OpenAI API key not set")
 
@@ -77,9 +68,7 @@ class OpenAIService(TranslationService):
             raise ValueError(f"OpenAI API error: {e}") from e
 
     def is_configured(self) -> bool:
-        """Check if the service is configured."""
         return bool(self.api_key) and OPENAI_AVAILABLE
 
     def get_name(self) -> str:
-        """Get the service name."""
         return f"OpenAI ({self.model})"

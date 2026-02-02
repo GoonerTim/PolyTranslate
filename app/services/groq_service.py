@@ -26,19 +26,11 @@ class GroqService(TranslationService):
     ]
 
     def __init__(self, api_key: str = "", model: str = "mixtral-8x7b-32768") -> None:
-        """
-        Initialize Groq service.
-
-        Args:
-            api_key: Groq API key.
-            model: Model to use for translation.
-        """
         self.api_key = api_key
         self.model = model
         self._client: Groq | None = None
 
     def _get_client(self) -> Groq:
-        """Get or create Groq client."""
         if not GROQ_AVAILABLE:
             raise ValueError("Groq package is not installed")
         if self._client is None:
@@ -46,7 +38,6 @@ class GroqService(TranslationService):
         return self._client
 
     def translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        """Translate text using Groq API."""
         if not self.is_configured():
             raise ValueError("Groq API key not set")
 
@@ -82,9 +73,7 @@ Translation:"""
             raise ValueError(f"Groq API error: {e}") from e
 
     def is_configured(self) -> bool:
-        """Check if the service is configured."""
         return bool(self.api_key) and GROQ_AVAILABLE
 
     def get_name(self) -> str:
-        """Get the service name."""
         return f"Groq ({self.model})"

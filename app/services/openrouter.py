@@ -26,15 +26,6 @@ class OpenRouterService(TranslationService):
         site_url: str = "",
         site_name: str = "Translator App",
     ) -> None:
-        """
-        Initialize OpenRouter service.
-
-        Args:
-            api_key: OpenRouter API key.
-            model: Model to use for translation.
-            site_url: Your site URL (for rankings).
-            site_name: Your site name (for rankings).
-        """
         self.api_key = api_key
         self.model = model
         self.site_url = site_url
@@ -42,7 +33,6 @@ class OpenRouterService(TranslationService):
         self._client: OpenAI | None = None
 
     def _get_client(self) -> OpenAI:
-        """Get or create OpenRouter client."""
         if not OPENAI_AVAILABLE:
             raise ValueError("OpenAI package is not installed")
         if self._client is None:
@@ -57,7 +47,6 @@ class OpenRouterService(TranslationService):
         return self._client
 
     def translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        """Translate text using OpenRouter API."""
         if not self.is_configured():
             raise ValueError("OpenRouter API key not set")
 
@@ -88,9 +77,7 @@ class OpenRouterService(TranslationService):
             raise ValueError(f"OpenRouter API error: {e}") from e
 
     def is_configured(self) -> bool:
-        """Check if the service is configured."""
         return bool(self.api_key) and OPENAI_AVAILABLE
 
     def get_name(self) -> str:
-        """Get the service name."""
         return f"OpenRouter ({self.model})"

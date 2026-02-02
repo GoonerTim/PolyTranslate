@@ -6,14 +6,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Add the project root to path for imports
 project_root = Path(__file__).parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 
 def download_nltk_resources() -> None:
-    """Download NLTK resources for sentence tokenization."""
     import contextlib
 
     try:
@@ -28,11 +26,8 @@ def download_nltk_resources() -> None:
 
 
 def main() -> None:
-    """Main entry point."""
-    # Download NLTK resources
     download_nltk_resources()
 
-    # Import and run the application
     from app.gui.main_window import MainWindow
 
     app = MainWindow()

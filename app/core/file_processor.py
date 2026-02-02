@@ -40,26 +40,21 @@ class FileProcessor:
 
     @staticmethod
     def detect_encoding(file_content: bytes) -> str:
-        """Detect the encoding of file content."""
         try:
             result = chardet.detect(file_content)
             detected = result.get("encoding")
             confidence = result.get("confidence", 0)
 
-            # If confidence is low, try common encodings
             if not detected or confidence < 0.7:
-                # Try UTF-8 first (most common)
                 try:
                     file_content.decode("utf-8")
                     return "utf-8"
                 except UnicodeDecodeError:
                     pass
 
-                # Try UTF-8 with BOM
                 if file_content.startswith(b"\xef\xbb\xbf"):
                     return "utf-8-sig"
 
-                # Try common Windows encodings
                 for enc in ["cp1251", "cp1252", "windows-1251", "windows-1252"]:
                     try:
                         file_content.decode(enc)
@@ -73,8 +68,6 @@ class FileProcessor:
 
     @staticmethod
     def read_txt(file_content: bytes) -> str:
-        """Read a text file."""
-        # Try multiple encodings with priority
         encodings = [
             FileProcessor.detect_encoding(file_content),
             "utf-8",
@@ -89,18 +82,15 @@ class FileProcessor:
         for encoding in encodings:
             try:
                 decoded = file_content.decode(encoding)
-                # Check if decoded text looks reasonable (no excessive mojibake)
                 if not all(ord(char) > 127 and ord(char) < 160 for char in decoded[:100]):
                     return decoded
             except (UnicodeDecodeError, LookupError, AttributeError):
                 continue
 
-        # Last resort: UTF-8 with error replacement
         return file_content.decode("utf-8", errors="replace")
 
     @staticmethod
     def read_pdf(file_content: bytes) -> str:
-        """Read a PDF file."""
         try:
             pdf_file = io.BytesIO(file_content)
             pdf_reader = PyPDF2.PdfReader(pdf_file)
@@ -115,7 +105,6 @@ class FileProcessor:
 
     @staticmethod
     def read_docx(file_content: bytes) -> str:
-        """Read a DOCX file."""
         try:
             docx_file = io.BytesIO(file_content)
             doc = Document(docx_file)
@@ -128,7 +117,6 @@ class FileProcessor:
 
     @staticmethod
     def read_pptx(file_content: bytes) -> str:
-        """Read a PPTX file."""
         try:
             pptx_file = io.BytesIO(file_content)
             presentation = pptx.Presentation(pptx_file)
@@ -143,7 +131,6 @@ class FileProcessor:
 
     @staticmethod
     def read_xlsx(file_content: bytes) -> str:
-        """Read an XLSX file."""
         try:
             xlsx_file = io.BytesIO(file_content)
             df = pd.read_excel(xlsx_file, sheet_name=None)
@@ -159,7 +146,6 @@ class FileProcessor:
 
     @staticmethod
     def read_csv(file_content: bytes) -> str:
-        """Read a CSV file."""
         try:
             encoding = FileProcessor.detect_encoding(file_content)
             csv_file = io.BytesIO(file_content)
@@ -174,7 +160,6 @@ class FileProcessor:
 
     @staticmethod
     def read_html(file_content: bytes) -> str:
-        """Read an HTML file."""
         try:
             encoding = FileProcessor.detect_encoding(file_content)
             html_content = file_content.decode(encoding)
@@ -191,7 +176,6 @@ class FileProcessor:
 
     @staticmethod
     def read_md(file_content: bytes) -> str:
-        """Read a Markdown file."""
         try:
             encoding = FileProcessor.detect_encoding(file_content)
             md_content = file_content.decode(encoding)
@@ -209,7 +193,6 @@ class FileProcessor:
         translate_strings: bool = True,
         preserve_code: bool = True,
     ) -> str:
-        """Read and parse Ren'Py .rpy files."""
         try:
             encoding = FileProcessor.detect_encoding(file_content)
             rpy_content = file_content.decode(encoding)
@@ -276,7 +259,6 @@ class FileProcessor:
         translate_dialogue: bool = True,
         translate_strings: bool = True,
     ) -> str:
-        """Reconstruct a .rpy file with translated text."""
         try:
             lines = original_content.split("\n")
             translated_lines: list[str] = []
@@ -325,12 +307,10 @@ class FileProcessor:
 
     @classmethod
     def process_file(cls, file_path: str | Path, **kwargs: Any) -> str:
-        """Process a file and extract text based on its extension."""
         path = Path(file_path)
         extension = path.suffix.lower().lstrip(".")
 
         if extension not in cls.SUPPORTED_EXTENSIONS:
-            # Try to read as text
             try:
                 content = path.read_bytes()
                 return cls.read_txt(content)
@@ -365,7 +345,6 @@ class FileProcessor:
 
     @classmethod
     def process_bytes(cls, file_content: bytes, extension: str, **kwargs: Any) -> str:
-        """Process file content bytes and extract text."""
         extension = extension.lower().lstrip(".")
 
         processors: dict[str, Any] = {

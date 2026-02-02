@@ -23,21 +23,12 @@ class LocalAIService(TranslationService):
         model: str = "default",
         api_key: str = "not-needed",
     ) -> None:
-        """
-        Initialize LocalAI service.
-
-        Args:
-            base_url: Base URL of the LocalAI server (e.g., http://localhost:8080/v1).
-            model: Model name to use.
-            api_key: API key (usually not needed for local servers).
-        """
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.api_key = api_key
         self._client: OpenAI | None = None
 
     def _get_client(self) -> OpenAI:
-        """Get or create LocalAI client."""
         if not OPENAI_AVAILABLE:
             raise ValueError("OpenAI package is not installed")
         if self._client is None:
@@ -48,7 +39,6 @@ class LocalAIService(TranslationService):
         return self._client
 
     def translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        """Translate text using LocalAI."""
         if not self.is_configured():
             raise ValueError("LocalAI server URL not configured")
 
@@ -79,9 +69,7 @@ class LocalAIService(TranslationService):
             raise ValueError(f"LocalAI error: {e}") from e
 
     def is_configured(self) -> bool:
-        """Check if the service is configured."""
         return bool(self.base_url) and OPENAI_AVAILABLE
 
     def get_name(self) -> str:
-        """Get the service name."""
         return f"LocalAI ({self.model})"

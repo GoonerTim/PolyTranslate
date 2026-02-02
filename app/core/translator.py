@@ -28,11 +28,8 @@ if TYPE_CHECKING:
 
 
 class SimpleTokenizer:
-    """Fallback tokenizer when NLTK is not available."""
-
     @staticmethod
     def sent_tokenize(text: str) -> list[str]:
-        """Simple sentence tokenizer."""
         sentences: list[str] = []
         current_sentence = ""
 
@@ -52,7 +49,6 @@ class SimpleTokenizer:
 
 
 def safe_sent_tokenize(text: str) -> list[str]:
-    """Safe sentence tokenizer with fallback."""
     try:
         return sent_tokenize(text)
     except LookupError:
@@ -65,7 +61,6 @@ class Translator:
     """Main translator class that orchestrates translation services."""
 
     def __init__(self, settings: Settings | None = None) -> None:
-        """Initialize the translator with settings."""
         self.settings = settings or Settings()
         self.services: dict[str, TranslationService] = {}
         self.glossary = Glossary()
@@ -73,53 +68,43 @@ class Translator:
         self._initialize_services()
 
     def _initialize_services(self) -> None:
-        """Initialize all translation services."""
         api_keys = self.settings.get_api_keys()
 
-        # DeepL (always available - uses free API if no key)
         self.services["deepl"] = DeepLService(
             api_key=api_keys.get("deepl", ""),
             is_free_plan=self.settings.get("deepl_plan", "free") == "free",
         )
 
-        # Yandex (always available - uses free API if no key)
         self.services["yandex"] = YandexService(api_key=api_keys.get("yandex", ""))
 
-        # Google (always available - uses free API if no key)
         self.services["google"] = GoogleService(api_key=api_keys.get("google", ""))
 
-        # OpenAI
         if api_keys.get("openai"):
             self.services["openai"] = OpenAIService(
                 api_key=api_keys["openai"],
                 model=self.settings.get("openai_model", "gpt-3.5-turbo"),
             )
 
-        # OpenRouter
         if api_keys.get("openrouter"):
             self.services["openrouter"] = OpenRouterService(
                 api_key=api_keys["openrouter"],
                 model=self.settings.get("openrouter_model", "openai/gpt-3.5-turbo"),
             )
 
-        # ChatGPT Proxy (no API key needed)
         self.services["chatgpt_proxy"] = ChatGPTProxyService()
 
-        # Groq
         if api_keys.get("groq"):
             self.services["groq"] = GroqService(
                 api_key=api_keys["groq"],
                 model=self.settings.get("groq_model", "mixtral-8x7b-32768"),
             )
 
-        # Claude
         if api_keys.get("anthropic"):
             self.services["claude"] = ClaudeService(
                 api_key=api_keys["anthropic"],
                 model=self.settings.get("claude_model", "claude-3-sonnet-20240229"),
             )
 
-        # LocalAI
         localai_url = self.settings.get("localai_url")
         if localai_url:
             self.services["localai"] = LocalAIService(
@@ -128,16 +113,13 @@ class Translator:
             )
 
     def reload_services(self) -> None:
-        """Reload services with updated settings."""
         self.services.clear()
         self._initialize_services()
 
     def get_available_services(self) -> list[str]:
-        """Get list of available (configured) services."""
         return [name for name, service in self.services.items() if service.is_configured()]
 
     def split_text(self, text: str, chunk_size: int = 1000) -> list[str]:
-        """Split text into chunks for translation."""
         sentences = safe_sent_tokenize(text)
         chunks: list[str] = []
         current_chunk = ""
@@ -162,21 +144,6 @@ class Translator:
         target_lang: str,
         service_name: str,
     ) -> str:
-        """
-        Translate text using a specific service.
-
-        Args:
-            text: Text to translate.
-            source_lang: Source language code.
-            target_lang: Target language code.
-            service_name: Name of the translation service to use.
-
-        Returns:
-            Translated text.
-
-        Raises:
-            ValueError: If the service is not available.
-        """
         service = self.services.get(service_name)
         if service is None:
             raise ValueError(f"Service '{service_name}' is not available")
@@ -184,10 +151,7 @@ class Translator:
         if not service.is_configured():
             raise ValueError(f"Service '{service_name}' is not configured")
 
-        # Translate
         translated = service.translate(text, source_lang, target_lang)
-
-        # Apply glossary
         translated = self.glossary.apply(translated)
 
         return translated
@@ -199,7 +163,6 @@ class Translator:
         target_lang: str,
         services: list[str],
     ) -> dict[str, str]:
-        """Translate a single chunk using multiple services."""
         results: dict[str, str] = {}
 
         for service_name in services:
@@ -222,30 +185,13 @@ class Translator:
         max_workers: int = 3,
         progress_callback: Callable[[int, int], None] | None = None,
     ) -> dict[str, str]:
-        """
-        Translate text using multiple services in parallel.
-
-        Args:
-            text: Text to translate.
-            source_lang: Source language code.
-            target_lang: Target language code.
-            services: List of service names to use.
-            chunk_size: Maximum chunk size.
-            max_workers: Maximum number of parallel workers.
-            progress_callback: Optional callback for progress updates.
-
-        Returns:
-            Dictionary mapping service names to translated text.
-        """
         chunks = self.split_text(text, chunk_size)
         total_tasks = len(chunks) * len(services)
         completed = 0
 
-        # Store results per service
         all_results: dict[str, list[str]] = {service: [] for service in services}
 
         def translate_task(chunk: str, chunk_idx: int, service_name: str) -> tuple[int, str, str]:
-            """Task for translating a single chunk with a single service."""
             try:
                 result = self.translate(chunk, source_lang, target_lang, service_name)
             except Exception as e:
@@ -259,7 +205,6 @@ class Translator:
                     future = executor.submit(translate_task, chunk, chunk_idx, service_name)
                     futures.append(future)
 
-            # Collect results
             chunk_results: dict[str, dict[int, str]] = {service: {} for service in services}
 
             for future in concurrent.futures.as_completed(futures):
@@ -269,20 +214,16 @@ class Translator:
                 if progress_callback:
                     progress_callback(completed, total_tasks)
 
-        # Combine chunks for each service
         for service_name in services:
             ordered_chunks = [chunk_results[service_name][i] for i in range(len(chunks))]
             all_results[service_name] = ordered_chunks
 
-        # Join chunks
         final_results = {service: " ".join(chunks) for service, chunks in all_results.items()}
 
-        # Apply glossary to final results
         for service in final_results:
             final_results[service] = self.glossary.apply(final_results[service])
 
         return final_results
 
     def detect_language(self, text: str) -> str | None:
-        """Detect the language of text."""
         return self.language_detector.detect(text)

@@ -19,24 +19,15 @@ class DeepLService(TranslationService):
     PRO_API_URL = "https://api.deepl.com/v2/translate"
     UNOFFICIAL_API_URL = "https://www2.deepl.com/jsonrpc"
 
-    # Rate limiting for free API
     _last_free_request_time: float = 0
     _free_api_lock = threading.Lock()
-    _min_request_interval = 1.0  # Minimum 1 second between free API requests
+    _min_request_interval = 1.0
 
     def __init__(self, api_key: str = "", is_free_plan: bool = True) -> None:
-        """
-        Initialize DeepL service.
-
-        Args:
-            api_key: DeepL API key.
-            is_free_plan: Whether using the free plan.
-        """
         self.api_key = api_key
         self.is_free_plan = is_free_plan
 
     def translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        """Translate text using DeepL API with fallback to unofficial free API."""
         if self.api_key:
             try:
                 return self._translate_with_api_key(text, source_lang, target_lang)
@@ -114,12 +105,10 @@ class DeepLService(TranslationService):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         }
 
-        # Retry logic with exponential backoff for rate limits
         max_retries = 3
-        base_delay = 2.0  # Start with 2 seconds
+        base_delay = 2.0
 
         for attempt in range(max_retries + 1):
-            # Rate limiting: ensure minimum interval between requests
             with self._free_api_lock:
                 current_time = time.time()
                 time_since_last_request = current_time - DeepLService._last_free_request_time
@@ -153,7 +142,6 @@ class DeepLService(TranslationService):
                 except (KeyError, IndexError, TypeError) as e:
                     raise ValueError(f"Failed to parse DeepL free API response: {e}") from e
 
-            # Handle rate limiting (429) with exponential backoff
             if response.status_code == 429:
                 if attempt < max_retries:
                     delay = base_delay * (2**attempt)
@@ -163,7 +151,6 @@ class DeepLService(TranslationService):
                     "DeepL free API rate limit exceeded. Please try again later or use an API key."
                 )
 
-            # Other errors
             raise ValueError(f"DeepL free API HTTP error {response.status_code}: {response.text}")
 
         raise ValueError("DeepL free API: Maximum retries exceeded")
@@ -174,13 +161,10 @@ class DeepLService(TranslationService):
         return [s.strip() for s in sentences if s.strip()]
 
     def is_configured(self) -> bool:
-        """Check if the service is configured."""
         return True
 
     def get_name(self) -> str:
-        """Get the service name."""
         return "DeepL" + (" (Free)" if not self.api_key else "")
 
     def get_supported_languages(self) -> list[str]:
-        """Get supported languages."""
         return list(DEEPL_LANG_MAP.keys())

@@ -16,11 +16,9 @@ class ChatGPTProxyService(TranslationService):
     API_URL = "https://mtdev.bytequests.com/v1/translation/chat-gpt"
 
     def __init__(self) -> None:
-        """Initialize ChatGPT Proxy service."""
         pass
 
     def translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        """Translate text using ChatGPT Proxy."""
         source_code = CHATGPT_PROXY_LANG_MAP.get(source_lang.lower(), -1)
         target_code = CHATGPT_PROXY_LANG_MAP.get(target_lang.lower())
 
@@ -64,13 +62,10 @@ class ChatGPTProxyService(TranslationService):
             raise ValueError(f"ChatGPT Proxy error {response.status_code}: {response.text}")
 
     def is_configured(self) -> bool:
-        """Check if the service is configured (always True for proxy)."""
         return True
 
     def get_name(self) -> str:
-        """Get the service name."""
         return "ChatGPT Proxy"
 
     def get_supported_languages(self) -> list[str]:
-        """Get supported languages."""
         return list(CHATGPT_PROXY_LANG_MAP.keys())
