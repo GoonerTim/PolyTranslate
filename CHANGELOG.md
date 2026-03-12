@@ -5,6 +5,45 @@ All notable changes to PolyTranslate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-03-12
+
+### Added
+
+#### Command-Line Interface (CLI)
+- **Full CLI mode**: Translate text and files directly from the terminal without launching the GUI
+  - `translate` (alias `t`): Translate text or file with progress bar and multi-service support
+  - `services` (alias `s`): List all configured translation services with availability status
+  - `languages` (alias `l`): List all supported language codes and names
+  - `detect` (alias `d`): Detect language of text or file content
+  - `config` (alias `c`): View config (API keys masked), set values, or manage API keys
+
+- **CLI translation features**:
+  - Translate text from argument, file (`--file`), or stdin pipe
+  - Select specific services (`--services deepl google`) or all (`--all-services`)
+  - Auto language detection with `--source auto` (default)
+  - Output to stdout or file (`--output result.txt`)
+  - Text or JSON output format (`--format json`) for scripting/pipelines
+  - Configurable chunk size and max workers from CLI flags
+  - Progress bar displayed on stderr (keeps stdout clean for piping)
+  - Uses same `config.json` as GUI, or custom config path (`--config`)
+
+- **New module** `app/cli.py`:
+  - `create_parser()`: Builds argparse parser with all commands and options
+  - `run_cli()`: Main CLI entry point dispatching to command handlers
+  - `cmd_translate()`, `cmd_services()`, `cmd_languages()`, `cmd_detect()`, `cmd_config()`
+
+- **Smart entry point dispatch** in `main.py`:
+  - CLI commands auto-detected from `sys.argv[1]` (translate, services, etc.)
+  - Falls back to GUI mode when no CLI command given
+  - `python main.py` launches GUI, `python main.py translate ...` uses CLI
+
+### Technical
+- New test file: `tests/test_cli.py` — 33 tests covering all CLI commands
+- All tests passing (350 tests, 91% coverage)
+- Ruff lint and format clean
+
+---
+
 ## [2.4.0] - 2026-03-12
 
 ### Added
@@ -273,7 +312,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Batch file processing
 - API usage statistics and cost tracking
 - Custom translation engine plugins
-- Command-line interface (CLI) mode
 - Export to various formats (XLIFF, TMX, etc.)
 - Automated translation caching
 - Integration with CAT tools
@@ -282,6 +320,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **2.5.0** (2026-03-12) - Command-Line Interface (CLI) mode
 - **2.4.0** (2026-03-12) - Multi-Agent Voting System + Ren'Py Context Awareness
 - **2.2.0** (2026-02-01) - Editable translations + original text comparison
 - **2.1.0** (2026-02-01) - Tabbed interface redesign

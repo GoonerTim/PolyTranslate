@@ -3,13 +3,13 @@
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-317%20passed-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-350%20passed-brightgreen.svg)
 ![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-**Modern desktop translation application with beautiful UI and support for multiple translation services**
+**Modern desktop translation application with beautiful UI, CLI mode, and support for multiple translation services**
 
-[Features](#features) • [Installation](#installation) • [Usage](#usage) • [Supported Services](#supported-services) • [Development](#development)
+[Features](#features) • [Installation](#installation) • [Usage](#usage) • [CLI Mode](#-cli-mode) • [Supported Services](#supported-services) • [Development](#development)
 
 </div>
 
@@ -17,9 +17,36 @@
 
 ## 📋 Overview
 
-PolyTranslate is a feature-rich desktop translation application with a **stunning modern UI** built with Python and CustomTkinter. It allows you to translate text and documents using multiple translation APIs simultaneously, compare results, and manage terminology with a built-in glossary.
+PolyTranslate is a feature-rich translation application with a **stunning modern UI** and a **full CLI mode**, built with Python and CustomTkinter. It allows you to translate text and documents using multiple translation APIs simultaneously, compare results, and manage terminology with a built-in glossary. Use the GUI for interactive work or the CLI for scripting and automation.
 
-## 🆕 What's New in v2.4
+## 🆕 What's New in v2.5
+
+**⌨️ Command-Line Interface (CLI)**
+
+Full CLI mode for scripting, automation, and terminal workflows — no GUI required!
+
+- **Translate text or files** directly from the terminal with `python main.py translate`
+- **Multiple services**: Use `--services deepl google` or `--all-services`
+- **JSON output**: `--format json` for easy integration with scripts and pipelines
+- **Pipe support**: `echo "Hello" | python main.py translate -t ru`
+- **File I/O**: `--file input.pdf --output result.txt`
+- **Config management**: View, set, and manage API keys from the CLI
+- **Language detection**: `python main.py detect "Bonjour"`
+- **Short aliases**: `t`, `s`, `l`, `d`, `c` for quick access
+
+```bash
+# Quick translate
+python main.py translate "Hello world" -t ru
+
+# Translate file with multiple services, JSON output
+python main.py translate -f document.pdf --services deepl google --format json -o result.json
+
+# List services and languages
+python main.py services
+python main.py languages
+```
+
+### Previous: v2.4
 
 **🗳️ Multi-Agent Voting System**
 
@@ -60,13 +87,14 @@ Configure agents in Settings → "AI Agents" section. Set Ren'Py game folder in 
 - **9 Translation Services**: DeepL (FREE), Google (FREE), Yandex (FREE), OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI
 - **9 File Formats**: TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, Markdown, Ren'Py scripts
 - **🆓 FREE Services**: DeepL, Google, and Yandex work without API keys using unofficial APIs
+- **⌨️ CLI Mode**: Full command-line interface for scripting and automation (NEW v2.5)
 - **🎨 Modern UI**: Beautiful redesigned interface with gradients, icons, and smooth animations
 - **📑 Tabbed Interface**: All features in one window - no popup dialogs
 - **✏️ Editable Translations**: Edit translations directly in the interface - all text areas are fully editable
 - **📄 Original Text Comparison**: Compare translations with source text side-by-side
 - **🤖 AI-Powered Evaluation**: Rate translation quality with scores (0-10), explanations, and AI-generated improvements
-- **🗳️ Multi-Agent Voting**: Multiple AI agents vote on translations with weighted consensus (NEW v2.4)
-- **🎮 Ren'Py Context**: Game-aware translation with character/scene context extraction (NEW v2.4)
+- **🗳️ Multi-Agent Voting**: Multiple AI agents vote on translations with weighted consensus
+- **🎮 Ren'Py Context**: Game-aware translation with character/scene context extraction
 - **Parallel Processing**: Translate large texts in chunks with multiple workers
 - **Service Comparison**: Compare translations from different services side-by-side in grid layout
 - **Glossary Management**: Built-in glossary editor with real-time updates
@@ -134,10 +162,77 @@ pre-commit install
 ### Running the Application
 
 ```bash
+# Launch GUI
 python main.py
+
+# Or use CLI mode
+python main.py translate "Hello world" -t ru
 ```
 
-### Basic Translation
+### ⌨️ CLI Mode
+
+PolyTranslate includes a full command-line interface for scripting and automation:
+
+```bash
+# Translate text
+python main.py translate "Hello world" -t ru
+python main.py t "Hello world" -t de              # short alias
+
+# Translate with specific services
+python main.py translate "Hello" --services deepl google
+
+# Use all available services
+python main.py translate "Hello" --all-services
+
+# Translate a file
+python main.py translate -f document.pdf -s en -t ru
+
+# Save output to file
+python main.py translate "Hello" -o output.txt
+
+# JSON output for scripting
+python main.py translate "Hello" --format json --all-services
+
+# Pipe from stdin
+echo "Hello world" | python main.py translate -t ru
+cat document.txt | python main.py translate -t de -o result.txt
+
+# Detect language
+python main.py detect "Bonjour le monde"
+python main.py d "こんにちは"                       # short alias
+
+# List available services
+python main.py services
+
+# List supported languages
+python main.py languages
+
+# View configuration (API keys masked)
+python main.py config
+
+# Set configuration values
+python main.py config --set target_language de
+python main.py config --set chunk_size 2000
+
+# Set API keys
+python main.py config --set-key openai sk-your-key-here
+python main.py config --set-key anthropic sk-ant-your-key
+
+# Use custom config file
+python main.py translate "Hello" --config /path/to/config.json
+```
+
+**CLI Commands:**
+
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `translate` | `t` | Translate text or file |
+| `services` | `s` | List available translation services |
+| `languages` | `l` | List supported languages |
+| `detect` | `d` | Detect language of text |
+| `config` | `c` | Show or update configuration |
+
+### Basic Translation (GUI)
 
 1. **Load Text**: Drag & drop a file or click "Open" to browse
 2. **Select Languages**: Choose source (or Auto) and target languages
@@ -301,8 +396,9 @@ PolyTranslate/
 │   │   ├── ai_evaluator.py   # AI-powered evaluation service
 │   │   └── ...          # Translation services (DeepL, Google, etc.)
 │   └── utils/           # Utilities (glossary, etc.)
-├── tests/               # Test suite (317 tests, 91% coverage)
-├── main.py              # Application entry point
+│   ├── cli.py           # Command-line interface (v2.5)
+├── tests/               # Test suite (350 tests, 91% coverage)
+├── main.py              # Entry point (GUI or CLI)
 ├── requirements.txt     # Production dependencies
 ├── requirements-dev.txt # Development dependencies
 └── pyproject.toml       # Project configuration
@@ -400,12 +496,13 @@ class TranslationService(ABC):
 
 ## 📊 Testing
 
-- **Unit Tests**: 317 tests covering all core modules
+- **Unit Tests**: 350 tests covering all core modules
 - **Integration Tests**: End-to-end workflow testing
 - **Coverage**: 91% code coverage
 - **CI/CD Ready**: All tests automated with pytest
 
 Test categories:
+- CLI commands (translate, services, languages, detect, config)
 - Translation service mocking (using `responses` library)
 - AI evaluation (prompt generation, score parsing, Ren'Py preservation)
 - Multi-agent voting (consensus, weighted scoring, graceful failure, JSON parsing)

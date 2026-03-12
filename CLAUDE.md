@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**PolyTranslate** - Modern desktop translation application with beautiful UI and support for 9 translation services (DeepL FREE, Google FREE, Yandex FREE, OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI) and 9 file formats (TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, MD, Ren'Py). Built with Python 3.10+ and CustomTkinter GUI.
+**PolyTranslate** - Modern translation application with beautiful GUI and full CLI mode. Supports 9 translation services (DeepL FREE, Google FREE, Yandex FREE, OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI) and 9 file formats (TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, MD, Ren'Py). Built with Python 3.10+ and CustomTkinter GUI.
 
-### Key Features (v2.4)
+### Key Features (v2.5)
 - **🆓 FREE Translation**: DeepL, Google, and Yandex work without API keys using unofficial public APIs
 - **🎨 Modern UI**: Completely redesigned interface with gradients, icons, animations, and card-based layout
 - **📑 Tabbed Interface**: All features in one window - Results, Comparison, AI Evaluation, History, Glossary tabs
@@ -15,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **🚀 Fast & Parallel**: Multi-threaded translation with real-time progress tracking
 - **📊 Service Comparison**: Compare original + translations from multiple services side-by-side in grid layout
 - **🤖 AI-Powered Evaluation**: Rate translation quality with scores (0-10), explanations, and AI-generated improvements
+- **⌨️ CLI Mode**: Full command-line interface for scripting, automation, and terminal workflows (v2.5)
 - **🗳️ Multi-Agent Voting**: Multiple AI agents (local + cloud) independently evaluate and vote on best translations (v2.4)
 - **🎮 Ren'Py Context Awareness**: Game context extraction (characters, scenes, dialogue) for smarter translation of visual novels (v2.4)
 
@@ -22,7 +23,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Running the Application
 ```bash
+# GUI mode
 python main.py
+
+# CLI mode
+python main.py translate "Hello world" -t ru
+python main.py --help
 ```
 
 ### Testing
@@ -220,6 +226,17 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 ### Module Responsibilities
 
+**CLI** (v2.5):
+- **`app/cli.py`**: Command-line interface with 5 commands (translate, services, languages, detect, config)
+  - `create_parser()`: Builds argparse parser with all commands, aliases, and options
+  - `run_cli()`: Entry point — parses args and dispatches to command handlers
+  - `cmd_translate()`: Translates text/file with progress bar, supports stdin pipe, JSON output
+  - `cmd_services()`: Lists all services with availability and selection status
+  - `cmd_languages()`: Lists all supported language codes
+  - `cmd_detect()`: Detects language of text/file
+  - `cmd_config()`: Shows config (keys masked), sets values, manages API keys
+  - Smart dispatch in `main.py`: CLI commands auto-detected from `sys.argv[1]`, falls back to GUI
+
 **Core Logic**:
 - **`app/core/translator.py`**: Orchestrates entire translation workflow, manages service lifecycle
 - **`app/core/file_processor.py`**: File format handling (9 formats), encoding detection, content extraction
@@ -279,7 +296,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 ### Testing Strategy
 
-**317 tests, 91% coverage** (GUI excluded)
+**350 tests, 91% coverage** (GUI excluded)
 
 - **Service Tests**: Mock HTTP with `responses` library. Example pattern:
   ```python
@@ -326,6 +343,14 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
   - Multi-label splitting with correct boundaries
   - No-label fallback, single-label, preamble handling
   - 6 tests
+
+- **CLI Tests** (`tests/test_cli.py`): Command-line interface testing (v2.5)
+  - Parser creation and argument parsing for all commands
+  - Translate: text, file, stdin, JSON output, file output, all-services, auto-detect
+  - Services listing, language listing, language detection
+  - Config: show (masked keys), set values, set API keys
+  - Error handling: missing input, invalid services, file not found
+  - 33 tests
 
 - **Integration Tests** (`tests/test_integration.py`): End-to-end workflows including file→process→translate→save, parallel processing, error handling, progress callbacks.
 

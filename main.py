@@ -28,10 +28,18 @@ def download_nltk_resources() -> None:
 def main() -> None:
     download_nltk_resources()
 
-    from app.gui.main_window import MainWindow
+    if len(sys.argv) > 1 and sys.argv[1] in (
+        "translate", "t", "services", "s", "languages", "l",
+        "detect", "d", "config", "c", "--help", "-h",
+    ):
+        from app.cli import run_cli
 
-    app = MainWindow()
-    app.run()
+        run_cli()
+    else:
+        from app.gui.main_window import MainWindow
+
+        app = MainWindow()
+        app.run()
 
 
 if __name__ == "__main__":
