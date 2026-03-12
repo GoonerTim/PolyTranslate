@@ -219,3 +219,48 @@ class TestSettings:
         # Test set
         settings.set_window_geometry("1920x1080")
         assert settings.get_window_geometry() == "1920x1080"
+
+    def test_agents_default(self, temp_dir: Path) -> None:
+        """Test default agents setting is empty list."""
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+
+        assert settings.get("agents") == []
+
+    def test_renpy_game_folder_default(self, temp_dir: Path) -> None:
+        """Test default renpy_game_folder setting."""
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+
+        assert settings.get("renpy_game_folder") == ""
+
+    def test_renpy_processing_mode_default(self, temp_dir: Path) -> None:
+        """Test default renpy_processing_mode setting."""
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+
+        assert settings.get("renpy_processing_mode") == "scenes"
+
+    def test_agents_save_and_load(self, temp_dir: Path) -> None:
+        """Test saving and loading agents configuration."""
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+
+        agents = [
+            {
+                "name": "Mistral 7B",
+                "base_url": "http://localhost:1234/v1",
+                "model": "mistral-7b",
+                "api_key": "not-needed",
+                "agent_type": "localai",
+                "weight": 1.5,
+            }
+        ]
+        settings.set("agents", agents)
+        settings.save()
+
+        settings2 = Settings(config_path)
+        loaded_agents = settings2.get("agents")
+        assert len(loaded_agents) == 1
+        assert loaded_agents[0]["name"] == "Mistral 7B"
+        assert loaded_agents[0]["weight"] == 1.5

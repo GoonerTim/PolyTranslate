@@ -3,8 +3,8 @@
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-268%20passed-brightgreen.svg)
-![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-317%20passed-brightgreen.svg)
+![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 **Modern desktop translation application with beautiful UI and support for multiple translation services**
@@ -19,11 +19,34 @@
 
 PolyTranslate is a feature-rich desktop translation application with a **stunning modern UI** built with Python and CustomTkinter. It allows you to translate text and documents using multiple translation APIs simultaneously, compare results, and manage terminology with a built-in glossary.
 
-## 🆕 What's New in v2.3
+## 🆕 What's New in v2.4
+
+**🗳️ Multi-Agent Voting System**
+
+Let multiple AI agents independently evaluate your translations and vote on the best one!
+
+- **Unlimited agents**: Mix local LLMs (LM Studio, Ollama) and cloud APIs (OpenAI, Claude, Groq)
+- **Weighted voting**: Assign different weights to trusted agents for consensus scoring
+- **Parallel execution**: All agents evaluate simultaneously via ThreadPoolExecutor
+- **Agreement tracking**: See how many agents agree on the best translation
+- **Merged translation**: Best agent produces a combined improved version
+- **Graceful degradation**: Failed agents are skipped, voting continues with the rest
+
+**🎮 Ren'Py Context Awareness**
+
+Smarter translation for visual novels with automatic game context extraction:
+
+- **Character parsing**: Automatically finds all `define ... = Character(...)` declarations
+- **Scene detection**: Identifies `label` blocks and which characters appear in each
+- **Dialogue context**: Provides nearby dialogue lines to the AI for better understanding
+- **Processing modes**: Translate by scenes (recommended), by chunks, or full file
+- **Context injection**: Game context is automatically added to evaluation prompts
+
+Configure agents in Settings → "AI Agents" section. Set Ren'Py game folder in Settings → "Ren'Py Settings".
+
+### Previous: v2.3
 
 **🤖 AI-Powered Translation Evaluation**
-
-Analyze your translations with artificial intelligence! The new AI Evaluation feature:
 
 - **Rates each translation** with numerical scores (0-10) and detailed explanations
 - **Identifies the best translation** automatically with visual highlighting
@@ -31,8 +54,6 @@ Analyze your translations with artificial intelligence! The new AI Evaluation fe
 - **Works with any LLM** - OpenAI, Claude, Groq, or LocalAI
 - **Preserves Ren'Py structure** for game translation workflows
 - **Saves evaluations to history** for future reference
-
-Simply complete a translation, click "🤖 Evaluate All", and get instant AI-powered quality analysis!
 
 ### ✨ Key Features
 
@@ -44,6 +65,8 @@ Simply complete a translation, click "🤖 Evaluate All", and get instant AI-pow
 - **✏️ Editable Translations**: Edit translations directly in the interface - all text areas are fully editable
 - **📄 Original Text Comparison**: Compare translations with source text side-by-side
 - **🤖 AI-Powered Evaluation**: Rate translation quality with scores (0-10), explanations, and AI-generated improvements
+- **🗳️ Multi-Agent Voting**: Multiple AI agents vote on translations with weighted consensus (NEW v2.4)
+- **🎮 Ren'Py Context**: Game-aware translation with character/scene context extraction (NEW v2.4)
 - **Parallel Processing**: Translate large texts in chunks with multiple workers
 - **Service Comparison**: Compare translations from different services side-by-side in grid layout
 - **Glossary Management**: Built-in glossary editor with real-time updates
@@ -160,6 +183,40 @@ python main.py
 
 **Note:** AI evaluation requires API calls to the selected LLM service and may incur costs depending on your service provider.
 
+### Multi-Agent Voting (NEW in v2.4)
+
+**Let multiple AI agents vote on translation quality:**
+
+1. Open **Settings** (⚙️ button)
+2. Scroll to **AI Agents** section
+3. Click **"+ Add Agent"** for each LLM you want to use:
+   - **Name**: Agent display name (e.g., "Mistral 7B", "GPT-4o")
+   - **Type**: `localai` (local server), `openai`, `claude`, or `groq`
+   - **URL**: Server URL for LocalAI agents (e.g., `http://localhost:1234/v1`)
+   - **Model**: Model identifier
+   - **Weight**: Voting weight (0.5-2.0, higher = more influence)
+4. Translate text, then click **"🤖 Agent Vote"**
+5. View results in AI Evaluation tab:
+   - **Agent Votes table**: Each agent's scores and best pick
+   - **Agreement indicator**: "3/3 agents agree" or "2/3 majority"
+   - **Consensus scores**: Weighted average across all agents
+   - **Merged translation**: From highest-weight agent
+
+**Tip:** Mix local models (fast, free) with cloud APIs (higher quality) for best results.
+
+### Ren'Py Game Translation (NEW in v2.4)
+
+**Context-aware translation for visual novels:**
+
+1. Open **Settings** → **Ren'Py Settings**
+2. Set **Game Folder** to your Ren'Py project directory (containing `.rpy` files)
+3. Choose **Processing Mode**:
+   - **By Scenes** (recommended): Splits file by `label` blocks
+   - **By Chunks**: Standard text chunking
+   - **Full File**: Translate entire file at once
+4. Open a `.rpy` file and translate
+5. When evaluating/voting, the AI receives game context (characters, scenes, recent dialogue)
+
 ### Configuration
 
 **Start translating immediately** with DeepL, Google, and Yandex (no API keys required)!
@@ -236,12 +293,15 @@ PolyTranslate/
 ├── app/
 │   ├── config/          # Configuration management
 │   ├── core/            # Core translation logic
+│   │   ├── renpy_context.py  # Ren'Py game context extractor (v2.4)
+│   │   └── ...
 │   ├── gui/             # Modern CustomTkinter UI (5 tabs)
 │   ├── services/        # Translation service implementations
-│   │   ├── ai_evaluator.py  # AI-powered evaluation service
+│   │   ├── agent_voting.py   # Multi-agent voting system (v2.4)
+│   │   ├── ai_evaluator.py   # AI-powered evaluation service
 │   │   └── ...          # Translation services (DeepL, Google, etc.)
 │   └── utils/           # Utilities (glossary, etc.)
-├── tests/               # Test suite (268 tests, 90% coverage)
+├── tests/               # Test suite (317 tests, 91% coverage)
 ├── main.py              # Application entry point
 ├── requirements.txt     # Production dependencies
 ├── requirements-dev.txt # Development dependencies
@@ -293,10 +353,12 @@ pre-commit run --all-files  # Manual run
 ### Core Components
 
 - **Translator**: Orchestrates translation workflow, manages services
-- **AIEvaluator**: AI-powered translation quality analysis
+- **AIEvaluator**: AI-powered translation quality analysis (single LLM)
+- **AgentVoting**: Multi-agent voting system with weighted consensus (v2.4)
+- **RenpyContextExtractor**: Game context parser for Ren'Py projects (v2.4)
 - **FileProcessor**: Handles file format reading/writing
 - **LanguageDetector**: Auto-detects source language
-- **Settings**: Manages API keys and application configuration
+- **Settings**: Manages API keys, agents, and application configuration
 - **Glossary**: Term replacement engine
 
 ### Translation Workflow
@@ -309,9 +371,10 @@ Reassemble → Apply glossary → Display results → (Optional) AI Evaluation
 ### AI Evaluation Workflow
 
 ```
-User clicks "Evaluate All" → AI Evaluator generates scores/explanations →
-Identifies best translation → Creates improved translation →
-Display in Results/Comparison/AI Evaluation tabs → Save to history
+User clicks "Evaluate All" / "Agent Vote"
+  → If agents configured: parallel multi-agent voting with weighted consensus
+  → Else: single AI Evaluator with 2 LLM calls (scores + improvement)
+  → Display in Results/Comparison/AI Evaluation tabs → Save to history
 ```
 
 ### Service Architecture
@@ -337,14 +400,17 @@ class TranslationService(ABC):
 
 ## 📊 Testing
 
-- **Unit Tests**: 268 tests covering all core modules
+- **Unit Tests**: 317 tests covering all core modules
 - **Integration Tests**: End-to-end workflow testing
-- **Coverage**: 90% code coverage
+- **Coverage**: 91% code coverage
 - **CI/CD Ready**: All tests automated with pytest
 
 Test categories:
 - Translation service mocking (using `responses` library)
 - AI evaluation (prompt generation, score parsing, Ren'Py preservation)
+- Multi-agent voting (consensus, weighted scoring, graceful failure, JSON parsing)
+- Ren'Py context extraction (characters, scenes, dialogue, truncation)
+- Ren'Py scene splitting (label boundaries, preamble handling)
 - Free API fallback mechanisms
 - File format processing
 - Parallel translation
@@ -366,7 +432,7 @@ English, Russian, German, French, Spanish, Italian, Dutch, Polish, Portuguese, C
 
 ## ⚙️ Configuration Files
 
-- **config.json**: API keys, application settings, and AI evaluator configuration
+- **config.json**: API keys, application settings, AI evaluator, agent voting, and Ren'Py configuration
 - **glossary.json**: Custom terminology dictionary
 - **history.json**: Translation history with evaluation scores and AI improvements
 

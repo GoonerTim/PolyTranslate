@@ -305,6 +305,31 @@ class FileProcessor:
         except Exception as e:
             raise ValueError(f"RPY reconstruction error: {e}") from e
 
+    @staticmethod
+    def split_rpy_by_scenes(content: str) -> list[tuple[str, str]]:
+        label_pattern = re.compile(r"^\s*label\s+(\w+)\s*:", re.MULTILINE)
+        matches = list(label_pattern.finditer(content))
+
+        if not matches:
+            return [("_full", content)]
+
+        scenes: list[tuple[str, str]] = []
+
+        # Content before first label (if any)
+        if matches[0].start() > 0:
+            preamble = content[: matches[0].start()].strip()
+            if preamble:
+                scenes.append(("_preamble", preamble))
+
+        for i, match in enumerate(matches):
+            label_name = match.group(1)
+            start = match.start()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
+            scene_content = content[start:end].rstrip()
+            scenes.append((label_name, scene_content))
+
+        return scenes
+
     @classmethod
     def process_file(cls, file_path: str | Path, **kwargs: Any) -> str:
         path = Path(file_path)

@@ -1,5 +1,6 @@
 """Translation services."""
 
+from app.services.agent_voting import AgentConfig, AgentVote, AgentVoting, VotingResult
 from app.services.ai_evaluator import AIEvaluator, EvaluationResult
 from app.services.base import TranslationService
 from app.services.chatgpt_proxy import ChatGPTProxyService
@@ -13,6 +14,10 @@ from app.services.openrouter import OpenRouterService
 from app.services.yandex import YandexService
 
 __all__ = [
+    "AgentConfig",
+    "AgentVote",
+    "AgentVoting",
+    "VotingResult",
     "AIEvaluator",
     "EvaluationResult",
     "TranslationService",

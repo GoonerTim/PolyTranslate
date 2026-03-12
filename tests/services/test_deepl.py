@@ -77,12 +77,7 @@ class TestDeepLService:
                 "translations": [
                     {
                         "beams": [
-                            {"postprocessed_sentence": "Привет"},
-                        ]
-                    },
-                    {
-                        "beams": [
-                            {"postprocessed_sentence": "мир!"},
+                            {"postprocessed_sentence": "Привет, мир!"},
                         ]
                     },
                 ]
@@ -97,8 +92,40 @@ class TestDeepLService:
 
         service = DeepLService(api_key="")
         result = service.translate("Hello world!", "en", "ru")
-        assert "Привет" in result
-        assert "мир!" in result
+        assert "Привет, мир!" in result
+
+    @responses.activate
+    def test_translate_free_api_multiple_sentences(self) -> None:
+        """Test translation of multiple sentences preserves separators."""
+        free_response = {
+            "result": {
+                "translations": [
+                    {
+                        "beams": [
+                            {"postprocessed_sentence": "Привет мир."},
+                        ]
+                    },
+                    {
+                        "beams": [
+                            {"postprocessed_sentence": "Как дела?"},
+                        ]
+                    },
+                ]
+            }
+        }
+        responses.add(
+            responses.POST,
+            "https://www2.deepl.com/jsonrpc",
+            json=free_response,
+            status=200,
+        )
+
+        service = DeepLService(api_key="")
+        result = service.translate("Hello world. How are you?", "en", "ru")
+        assert "Привет мир." in result
+        assert "Как дела?" in result
+        # Separator between sentences should be preserved
+        assert " " in result
 
     @responses.activate
     def test_translate_fallback_to_free_api(self) -> None:

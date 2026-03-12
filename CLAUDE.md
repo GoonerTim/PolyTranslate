@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **PolyTranslate** - Modern desktop translation application with beautiful UI and support for 9 translation services (DeepL FREE, Google FREE, Yandex FREE, OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI) and 9 file formats (TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, MD, Ren'Py). Built with Python 3.10+ and CustomTkinter GUI.
 
-### Key Features (v2.3)
+### Key Features (v2.4)
 - **🆓 FREE Translation**: DeepL, Google, and Yandex work without API keys using unofficial public APIs
 - **🎨 Modern UI**: Completely redesigned interface with gradients, icons, animations, and card-based layout
 - **📑 Tabbed Interface**: All features in one window - Results, Comparison, AI Evaluation, History, Glossary tabs
@@ -15,6 +15,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **🚀 Fast & Parallel**: Multi-threaded translation with real-time progress tracking
 - **📊 Service Comparison**: Compare original + translations from multiple services side-by-side in grid layout
 - **🤖 AI-Powered Evaluation**: Rate translation quality with scores (0-10), explanations, and AI-generated improvements
+- **🗳️ Multi-Agent Voting**: Multiple AI agents (local + cloud) independently evaluate and vote on best translations (v2.4)
+- **🎮 Ren'Py Context Awareness**: Game context extraction (characters, scenes, dialogue) for smarter translation of visual novels (v2.4)
 
 ## Common Commands
 
@@ -85,27 +87,42 @@ User Input (File/Text)
   → Display in GUI tabs
 ```
 
-### AI Evaluation Flow (v2.3)
+### AI Evaluation Flow (v2.3+)
 ```
-User clicks "🤖 Evaluate All"
-  → AIEvaluator.evaluate_translations()
-      → LLM Service generates evaluation for each translation
-          → Returns: scores (0-10), explanations, strengths/weaknesses
-      → LLM Service generates improved translation
-          → Combines best aspects of all translations
-          → Preserves Ren'Py structure if applicable
+User clicks "🤖 Evaluate All" / "🤖 Agent Vote"
+  → If agents configured (v2.4):
+      → AgentVoting.vote_on_translations()
+          → Build Ren'Py context (if .rpy file + game folder set)
+          → For each agent in parallel (ThreadPoolExecutor):
+              → Create LLM client (reuses existing services)
+              → Send voting prompt (scores + merged in 1 call)
+              → Parse JSON response → AgentVote
+          → Compute weighted consensus scores
+          → Determine majority best service
+          → Select merged translation from highest-weight agent
+      → Convert VotingResult → EvaluationResult for UI compatibility
+  → Else (single evaluator, v2.3):
+      → AIEvaluator.evaluate_translations()
+          → LLM Service generates evaluation for each translation
+              → Returns: scores (0-10), explanations, strengths/weaknesses
+          → LLM Service generates improved translation
+              → Combines best aspects of all translations
+              → Preserves Ren'Py structure if applicable
   → Store evaluations in _evaluations dict
   → Identify best service by highest score
   → Update UI:
       → Results tab: Show rating frames with scores/explanations/badges
       → Comparison tab: Show score badges and highlight best with border
-      → AI Evaluation tab: Show detailed report with improved translation
+      → AI Evaluation tab: Show detailed report + agent votes table (if voting)
   → Save to history with evaluation data
 ```
 
 **Key Components:**
-- **AIEvaluator** (`app/services/ai_evaluator.py`): Dedicated service for translation quality evaluation
+- **AIEvaluator** (`app/services/ai_evaluator.py`): Single-service translation quality evaluation
+- **AgentVoting** (`app/services/agent_voting.py`): Multi-agent voting system with weighted consensus (v2.4)
+- **RenpyContextExtractor** (`app/core/renpy_context.py`): Game context parser for Ren'Py files (v2.4)
 - **EvaluationResult**: Dataclass storing score, explanation, timestamp, strengths/weaknesses
+- **AgentConfig/AgentVote/VotingResult**: Dataclasses for agent voting workflow (v2.4)
 - **LLM Backend**: User-configurable (OpenAI/Claude/Groq/LocalAI) via Settings
 - **Ren'Py Preservation**: Special handling to maintain game file structure in improved translations
 - **UI Integration**: Ratings displayed in Results, Comparison, and dedicated AI Evaluation tabs
@@ -197,17 +214,26 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 - `process_file()` dispatches based on file extension
 - `process_bytes()` for in-memory processing
 - Special handling for Ren'Py (`.rpy`) with dialogue extraction and reconstruction
+- `split_rpy_by_scenes()`: Splits `.rpy` content by `label` blocks into `(label_name, scene_content)` tuples (v2.4)
+  - Handles preamble content before first label
+  - Falls back to single `("_full", content)` when no labels found
 
 ### Module Responsibilities
 
 **Core Logic**:
 - **`app/core/translator.py`**: Orchestrates entire translation workflow, manages service lifecycle
 - **`app/core/file_processor.py`**: File format handling (9 formats), encoding detection, content extraction
+  - `split_rpy_by_scenes()`: Splits `.rpy` files by `label` blocks for scene-based processing (v2.4)
 - **`app/core/language_detector.py`**: Wrapper around langdetect with availability checks
+- **`app/core/renpy_context.py`**: Ren'Py game context extractor (v2.4)
+  - Parses `define ... = Character(...)` declarations from all `.rpy` files
+  - Extracts scene labels, characters present per scene, dialogue previews
+  - Generates compact context strings for LLM prompts (truncated by max_tokens)
 
 **Configuration**:
 - **`app/config/settings.py`**: JSON persistence, API key management, config deep merge
   - Includes AI evaluator settings: `ai_evaluator_service`, `ai_evaluator_model`, `ai_evaluation_auto`
+  - Agent voting settings: `agents` (list of agent configs), `renpy_game_folder`, `renpy_processing_mode` (v2.4)
 - **`app/config/languages.py`**: Language code mappings for different services (DeepL uses uppercase codes, ChatGPT Proxy has special mappings)
 
 **Services** (with FREE API support):
@@ -224,6 +250,13 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
   - Uses any LLM service (OpenAI/Claude/Groq/LocalAI) as backend
   - Generates scores (0-10), explanations, and improved translations
   - Preserves Ren'Py structure in improved translations
+- **`app/services/agent_voting.py`**: Multi-agent voting system (v2.4)
+  - `AgentConfig`: Dataclass for agent definition (name, base_url, model, api_key, agent_type, weight)
+  - `AgentVoting`: Orchestrates parallel voting across multiple LLM agents
+  - `_create_agent_client()`: Reuses existing service classes (LocalAI/OpenAI/Claude/Groq) by agent_type
+  - `_compute_consensus()`: Weighted average scores, majority vote for best, highest-weight merged translation
+  - Graceful degradation: failed agents are skipped, continues with remaining
+  - 1 LLM call per agent (scores + merge in single prompt) for token efficiency
 
 **Modern UI** (excluded from test coverage):
 - **`app/gui/main_window.py`**: Main window with integrated tabbed interface
@@ -231,9 +264,13 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
   - Manages all UI content and tab switching
   - Modern card-based layout, icon system, minimal docstrings
   - AI Evaluation tab shows detailed ratings and improved translation
+  - Agent voting integration: auto-detects agents config, builds Ren'Py context, shows vote table (v2.4)
+  - Button text dynamically switches: "🤖 Agent Vote" (with agents) / "🤖 Evaluate All" (without)
 - **`app/gui/widgets/file_drop.py`**: Modern drag-drop zone with visual feedback
 - **`app/gui/widgets/progress.py`**: Modern horizontal progress bar
 - **`app/gui/settings_dialog.py`**: Settings dialog with API key configuration (still a popup for focused configuration)
+  - "AI Agents" section: dynamic agent rows (name, type, URL, model, API key, weight slider) with add/remove (v2.4)
+  - "Ren'Py Settings" section: game folder browse + processing mode dropdown (v2.4)
 - **`app/gui/history_view.py`**: TranslationHistory class for history persistence (UI now in main_window.py)
 - **Note**: Comparison, History, and Glossary UI are now integrated tabs in `main_window.py` (not separate popup windows)
 
@@ -242,7 +279,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 ### Testing Strategy
 
-**268 tests, 90% coverage** (GUI excluded)
+**317 tests, 91% coverage** (GUI excluded)
 
 - **Service Tests**: Mock HTTP with `responses` library. Example pattern:
   ```python
@@ -266,6 +303,30 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
   - Test prompt generation for evaluation and improvement
   - 19 tests with 97% coverage of ai_evaluator.py
 
+- **Agent Voting Tests** (`tests/test_agent_voting.py`): Multi-agent voting system testing (v2.4)
+  - Dataclass creation, validation (empty translations, no agents)
+  - Single and multi-agent voting with weighted consensus
+  - Full and partial agreement ratio calculation
+  - Graceful agent failure handling (skip failed, continue with rest)
+  - Voting prompt generation (with/without Ren'Py context)
+  - JSON response parsing (valid, code-block-wrapped, invalid)
+  - Score clamping (0-10 range), auto-detect best from scores
+  - Agent client creation for all 4 service types
+  - 25 tests with 95% coverage of agent_voting.py
+
+- **Ren'Py Context Tests** (`tests/test_renpy_context.py`): Context extraction testing (v2.4)
+  - Character parsing from `define` statements (with/without color kwargs)
+  - Scene extraction from `label` blocks
+  - Characters-per-scene detection
+  - Context string format and truncation by max_tokens
+  - Edge cases: empty folder, nonexistent folder, dialogue preview limits
+  - 13 tests with 92% coverage of renpy_context.py
+
+- **Ren'Py Scene Splitting Tests** (`tests/test_file_processor_renpy_scenes.py`): Scene-based file splitting (v2.4)
+  - Multi-label splitting with correct boundaries
+  - No-label fallback, single-label, preamble handling
+  - 6 tests
+
 - **Integration Tests** (`tests/test_integration.py`): End-to-end workflows including file→process→translate→save, parallel processing, error handling, progress callbacks.
 
 - **File Format Tests** (`tests/test_file_processor_formats.py`): Create actual files in-memory (PyPDF2, python-docx, python-pptx, pandas), test extraction.
@@ -275,7 +336,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 ### Configuration Files
 
 Runtime config (gitignored):
-- **`config.json`**: API keys, theme, chunk_size, max_workers, selected_services, ai_evaluator_service
+- **`config.json`**: API keys, theme, chunk_size, max_workers, selected_services, ai_evaluator_service, agents, renpy_game_folder, renpy_processing_mode
 - **`glossary.json`**: User term dictionary
 - **`history.json`**: Translation history (v2.3: includes evaluation scores, explanations, ai_improved, best_service)
 
@@ -317,6 +378,21 @@ Runtime config (gitignored):
 
 4. Create `tests/services/test_newservice.py` with mocked HTTP for both APIs
 
+### Add Voting Agent Type
+
+1. Implement a new `TranslationService` subclass (or reuse existing one)
+
+2. Add case in `AgentVoting._create_agent_client()`:
+   ```python
+   elif agent.agent_type == "newtype":
+       from app.services.newservice import NewService
+       return NewService(api_key=agent.api_key, model=agent.model)
+   ```
+
+3. Add to `SettingsDialog.AGENT_TYPES` list
+
+4. Add tests in `tests/test_agent_voting.py` for client creation
+
 ### Add File Format
 
 1. Add method in `FileProcessor`: `read_newformat(content: bytes) -> str`
@@ -339,7 +415,7 @@ Runtime config (gitignored):
 
 - **API Key Security**: Never commit `config.json`. Keys stored locally only.
 
-- **Coverage Target**: 70% minimum (pyproject.toml), currently 90%. GUI excluded from coverage (`app/gui/*` omitted).
+- **Coverage Target**: 70% minimum (pyproject.toml), currently 91%. GUI excluded from coverage (`app/gui/*` omitted).
 
 - **Ruff Configuration**: Line length 100, ignores E501 (line too long), uses modern Python features (UP rules).
 
@@ -434,12 +510,142 @@ Evaluations are automatically saved to history:
 - LocalAI typically slower but more private
 - Costs token usage (see LLM service pricing)
 
-## UI Workflow (v2.3)
+## Multi-Agent Voting System (v2.4)
+
+### Overview
+Multi-agent voting system where multiple AI agents (local and cloud LLMs) independently evaluate translations, vote on the best one, and produce a merged/improved translation. Overrides single AI Evaluator when agents are configured.
+
+### Architecture
+
+**Key Classes** (`app/services/agent_voting.py`):
+- `AgentConfig`: Defines an agent (name, base_url, model, api_key, agent_type, weight)
+- `AgentVote`: Single agent's response (scores per service, best pick, explanations, merged translation)
+- `VotingResult`: Aggregated result (consensus scores, consensus best, agreement ratio, merged translation)
+- `AgentVoting`: Orchestrator — sends prompts in parallel, collects votes, computes consensus
+
+**Flow:**
+```
+Settings: agents = [{name, base_url, model, api_key, agent_type, weight}, ...]
+  → User clicks "🤖 Agent Vote"
+  → MainWindow._start_agent_voting()
+      → Build AgentConfig list from settings
+      → If .rpy file + renpy_game_folder → RenpyContextExtractor.get_context_for_text()
+      → Create AgentVoting(agents, context)
+      → Thread: AgentVoting.vote_on_translations()
+          → For each agent (parallel, ThreadPoolExecutor):
+              → _create_agent_client() → reuses LocalAI/OpenAI/Claude/Groq service classes
+              → client.translate(voting_prompt) → single LLM call with JSON response
+              → _parse_agent_response() → AgentVote
+          → _compute_consensus():
+              → Weighted average scores per service
+              → Consensus best = highest weighted average score
+              → Agreement ratio = fraction of agents agreeing on best
+              → Merged translation from highest-weight agent
+      → Convert VotingResult → dict[str, EvaluationResult] for UI compatibility
+      → _on_evaluation_complete() (same UI path as single evaluator)
+```
+
+**Agent Types:**
+- `localai`: Uses `LocalAIService(base_url, model, api_key)` — for local LLMs (LM Studio, Ollama, etc.)
+- `openai`: Uses `OpenAIService(api_key, model)` — GPT models
+- `claude`: Uses `ClaudeService(api_key, model)` — Anthropic models
+- `groq`: Uses `GroqService(api_key, model)` — fast inference
+
+**Configuration** (`config.json`):
+```json
+{
+  "agents": [
+    {
+      "name": "Mistral 7B",
+      "base_url": "http://localhost:1234/v1",
+      "model": "mistral-7b",
+      "api_key": "not-needed",
+      "agent_type": "localai",
+      "weight": 1.0
+    },
+    {
+      "name": "GPT-4o",
+      "base_url": "",
+      "model": "gpt-4o",
+      "api_key": "sk-...",
+      "agent_type": "openai",
+      "weight": 1.5
+    }
+  ],
+  "renpy_game_folder": "/path/to/game",
+  "renpy_processing_mode": "scenes"
+}
+```
+
+**Consensus Algorithm:**
+- Weighted average: `score[service] = Σ(vote.scores[service] * agent.weight) / Σ(agent.weight)`
+- Best service: highest weighted average score (not majority vote of best_service picks)
+- Agreement ratio: `count(agents who picked consensus_best) / total_agents`
+- Merged translation: from agent with highest weight that provided one
+
+**Error Handling:**
+- Failed agents are silently skipped (logged as warning)
+- If all agents fail → `RuntimeError("All agents failed to respond")`
+- 60s timeout per agent, 120s total for ThreadPoolExecutor
+- Invalid JSON responses produce empty AgentVote (no scores)
+
+### Settings UI
+
+In Settings dialog → "AI Agents (Multi-Agent Voting)" section:
+- Dynamic agent rows with: Name, Type (dropdown), URL (LocalAI only), Model, API Key, Weight (slider 0.5-2.0)
+- "+ Add Agent" button, "X" Remove button per row
+- URL field disabled for non-localai agent types
+
+## Ren'Py Context Awareness (v2.4)
+
+### Overview
+Extracts structured game context from Ren'Py project folders and injects it into evaluation/voting prompts, giving LLMs awareness of characters, scenes, and dialogue flow.
+
+### Architecture
+
+**Key Classes** (`app/core/renpy_context.py`):
+- `RenpyCharacter`: variable, name, color
+- `RenpyScene`: label, characters_present, dialogue_preview (first 5 lines)
+- `RenpyContext`: characters, scenes, current_scene, nearby_dialogue
+- `RenpyContextExtractor`: Parses all `.rpy` files in game folder
+
+**Parsing Regexes:**
+- Characters: `^\s*define\s+(\w+)\s*=\s*Character\s*\(\s*["'](.+?)["']...`
+- Scenes: `^\s*label\s+(\w+)\s*:`
+- Dialogue: `^\s+(\w+)\s+["'](.*?)["']`
+
+**Context String Format:**
+```
+== GAME CONTEXT ==
+Characters: e=Eileen, mc=Main Character
+Current Scene: start
+Recent dialogue:
+  e: "Hello!"
+  mc: "Hi!"
+== END CONTEXT ==
+```
+
+Truncated by `max_tokens` (default 1500, ~6000 chars) for small model compatibility.
+
+### Ren'Py Processing Modes
+
+Setting `renpy_processing_mode` controls how `.rpy` files are split for translation:
+- `"scenes"` (default, recommended): `FileProcessor.split_rpy_by_scenes()` splits by `label` blocks
+- `"chunks"`: Standard `split_text()` chunking with context in prompt
+- `"full"`: Entire file as single chunk
+
+### Integration Points
+
+- `MainWindow._start_agent_voting()`: Creates `RenpyContextExtractor` if `.rpy` file and `renpy_game_folder` set
+- `AgentVoting.__init__(agents, context)`: Receives context string, injects into voting prompt
+- Settings dialog: "Ren'Py Game Folder" (browse) + "Processing Mode" (dropdown)
+
+## UI Workflow (v2.3+)
 
 ### Navigation Flow
 1. User clicks menu button (📜 History, 📚 Glossary) → switches to that tab
 2. "📊 Compare" button → switches to Comparison tab
-3. "🤖 Evaluate All" button → evaluates translations and switches to AI Evaluation tab
+3. "🤖 Evaluate All" / "🤖 Agent Vote" button → evaluates translations and switches to AI Evaluation tab
 4. Clicking history card → loads translation + original text + evaluations and switches to Results tab
 5. All tabs accessible via direct clicking on tab headers
 
@@ -455,8 +661,9 @@ Evaluations are automatically saved to history:
   - Displays score badges and best service highlighting
 - **AI Evaluation Tab**: Shows detailed evaluation report
   - Summary statistics (evaluated count, best service, average score)
+  - Agent votes table with agreement indicator (v2.4, shown when agents used)
   - Detailed evaluation cards sorted by score
-  - AI-improved translation with edit/copy/save capabilities
+  - AI-improved/merged translation with edit/copy/save capabilities
 - **History Tab**: Refreshes card list when history changes
 - **Glossary Tab**: Maintains entry widgets state, saves on button click
 

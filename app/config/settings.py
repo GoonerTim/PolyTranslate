@@ -37,6 +37,9 @@ class Settings:
         "ai_evaluator_service": "",
         "ai_evaluator_model": "",
         "ai_evaluation_auto": False,
+        "agents": [],
+        "renpy_game_folder": "",
+        "renpy_processing_mode": "scenes",
     }
 
     def __init__(self, config_path: str | Path | None = None) -> None:

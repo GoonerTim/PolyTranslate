@@ -23,6 +23,8 @@ class DeepLService(TranslationService):
     _free_api_lock = threading.Lock()
     _min_request_interval = 1.0
 
+    _SENTENCE_PATTERN = re.compile(r'^\s+|(?:\s*\n)+\s*|[.!?"\x27:;\u0964](?:\s+)|\s+$')
+
     def __init__(self, api_key: str = "", is_free_plan: bool = True) -> None:
         self.api_key = api_key
         self.is_free_plan = is_free_plan
@@ -69,6 +71,25 @@ class DeepLService(TranslationService):
         else:
             raise ValueError(f"DeepL API error {response.status_code}: {response.text}")
 
+    def _parse_text(self, text: str) -> list[dict[str, str | int]]:
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        segments: list[dict[str, str | int]] = []
+        pos = 0
+        for match in self._SENTENCE_PATTERN.finditer(text):
+            sep = match.group(0)
+            is_punct_sep = bool(re.match(r'[.!?"\x27:;\u0964](?:\s+)', sep))
+            if pos < match.start():
+                end = match.start() + 1 if is_punct_sep else match.start()
+                if pos < end:
+                    segments.append({"type": 1, "text": text[pos:end]})
+                    pos = end
+            sep_text = sep[1:] if is_punct_sep else sep
+            segments.append({"type": 0, "text": sep_text})
+            pos = match.start() + len(sep)
+        if pos < len(text):
+            segments.append({"type": 1, "text": text[pos:]})
+        return segments
+
     def _translate_free(self, text: str, source_lang: str, target_lang: str) -> str:
         target_lang_deepl = DEEPL_LANG_MAP.get(target_lang.lower())
         if not target_lang_deepl:
@@ -76,18 +97,24 @@ class DeepLService(TranslationService):
 
         source_lang_deepl = DEEPL_LANG_MAP.get(source_lang.lower(), "auto")
 
-        sentences = self._split_sentences(text)
+        segments = self._parse_text(text)
+        sentences = [re.sub(r"\s+", " ", str(seg["text"])) for seg in segments if seg["type"] == 1]
+
+        if not sentences:
+            return text
+
         jobs = [{"kind": "default", "raw_en_sentence": sentence} for sentence in sentences]
 
+        i_count = 1
+        for sentence in sentences:
+            i_count += sentence.count("i")
         timestamp = int(time.time() * 1000)
-        i_count = sum(sentence.count("i") for sentence in sentences)
-        if i_count > 0:
-            timestamp = timestamp + (i_count - timestamp % i_count)
+        timestamp = timestamp + (i_count - timestamp % i_count)
 
         payload = {
             "jsonrpc": "2.0",
             "method": "LMT_handle_jobs",
-            "id": 1,
+            "id": 2,
             "params": {
                 "jobs": jobs,
                 "lang": {
@@ -101,7 +128,11 @@ class DeepLService(TranslationService):
         }
 
         headers = {
-            "Content-Type": "application/json",
+            "Accept": "*/*",
+            "Accept-Language": "en-US;q=0.8,en;q=0.6",
+            "Accept-Encoding": "gzip,deflate",
+            "Accept-Charset": "utf-8",
+            "Content-Type": "application/json; charset=utf-8",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         }
 
@@ -130,14 +161,24 @@ class DeepLService(TranslationService):
                 try:
                     result = response.json()
                     if result.get("result") and result["result"].get("translations"):
-                        translations = []
+                        translated_sentences = []
                         for translation in result["result"]["translations"]:
                             if translation.get("beams") and len(translation["beams"]) > 0:
                                 translated_text = translation["beams"][0].get(
                                     "postprocessed_sentence", ""
                                 )
-                                translations.append(translated_text)
-                        return " ".join(translations)
+                                translated_sentences.append(translated_text)
+                            else:
+                                translated_sentences.append("")
+
+                        output = []
+                        trans_iter = iter(translated_sentences)
+                        for seg in segments:
+                            if seg["type"] == 0:
+                                output.append(str(seg["text"]))
+                            else:
+                                output.append(next(trans_iter, str(seg["text"])))
+                        return "".join(output)
                     raise ValueError("Unexpected response format from DeepL free API")
                 except (KeyError, IndexError, TypeError) as e:
                     raise ValueError(f"Failed to parse DeepL free API response: {e}") from e
@@ -154,11 +195,6 @@ class DeepLService(TranslationService):
             raise ValueError(f"DeepL free API HTTP error {response.status_code}: {response.text}")
 
         raise ValueError("DeepL free API: Maximum retries exceeded")
-
-    def _split_sentences(self, text: str) -> list[str]:
-        sentence_pattern = r"[.!?\"':;\u0964]\s+|\n+"
-        sentences = re.split(sentence_pattern, text)
-        return [s.strip() for s in sentences if s.strip()]
 
     def is_configured(self) -> bool:
         return True
