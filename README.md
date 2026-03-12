@@ -3,7 +3,7 @@
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-350%20passed-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-382%20passed-brightgreen.svg)
 ![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
@@ -19,7 +19,33 @@
 
 PolyTranslate is a feature-rich translation application with a **stunning modern UI** and a **full CLI mode**, built with Python and CustomTkinter. It allows you to translate text and documents using multiple translation APIs simultaneously, compare results, and manage terminology with a built-in glossary. Use the GUI for interactive work or the CLI for scripting and automation.
 
-## 🆕 What's New in v2.5
+## 🆕 What's New in v2.6
+
+**📁 Batch Folder Translation**
+
+Translate all files in a directory at once — in GUI, CLI, or via the Python API!
+
+- **Point to a game folder** and translate every `.rpy` file automatically
+- **GUI**: "📁 Translate Folder" button — select folder, confirm, see per-file progress and results
+- **CLI**: `python main.py translate -d /path/to/game/ -t ru` with full batch support
+- **Output naming**: `script.rpy` → `script_ru.rpy` (language suffix preserved)
+- **Custom extensions**: `--extensions .rpy .txt` to translate any file types
+- **Output directory**: `--output-dir /output/` with subdirectory structure preserved
+- **Error resilience**: Failed files are skipped, the rest continue translating
+- **Ren'Py reconstruction**: `.rpy` files keep their structure (labels, characters, code)
+
+```bash
+# Translate all .rpy files in a game folder
+python main.py translate -d /path/to/game/ -t ru
+
+# Custom extensions and output directory
+python main.py translate -d /game/ -t ru --extensions .rpy .txt --output-dir /output/
+
+# Non-recursive, specific service, JSON report
+python main.py translate -d /game/ -t de --no-recursive --service google --format json
+```
+
+### Previous: v2.5
 
 **⌨️ Command-Line Interface (CLI)**
 
@@ -33,18 +59,6 @@ Full CLI mode for scripting, automation, and terminal workflows — no GUI requi
 - **Config management**: View, set, and manage API keys from the CLI
 - **Language detection**: `python main.py detect "Bonjour"`
 - **Short aliases**: `t`, `s`, `l`, `d`, `c` for quick access
-
-```bash
-# Quick translate
-python main.py translate "Hello world" -t ru
-
-# Translate file with multiple services, JSON output
-python main.py translate -f document.pdf --services deepl google --format json -o result.json
-
-# List services and languages
-python main.py services
-python main.py languages
-```
 
 ### Previous: v2.4
 
@@ -87,7 +101,8 @@ Configure agents in Settings → "AI Agents" section. Set Ren'Py game folder in 
 - **9 Translation Services**: DeepL (FREE), Google (FREE), Yandex (FREE), OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI
 - **9 File Formats**: TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, Markdown, Ren'Py scripts
 - **🆓 FREE Services**: DeepL, Google, and Yandex work without API keys using unofficial APIs
-- **⌨️ CLI Mode**: Full command-line interface for scripting and automation (NEW v2.5)
+- **📁 Batch Folder Translation**: Translate all files in a directory at once — GUI, CLI, and API (NEW v2.6)
+- **⌨️ CLI Mode**: Full command-line interface for scripting and automation (v2.5)
 - **🎨 Modern UI**: Beautiful redesigned interface with gradients, icons, and smooth animations
 - **📑 Tabbed Interface**: All features in one window - no popup dialogs
 - **✏️ Editable Translations**: Edit translations directly in the interface - all text areas are fully editable
@@ -218,6 +233,11 @@ python main.py config --set chunk_size 2000
 python main.py config --set-key openai sk-your-key-here
 python main.py config --set-key anthropic sk-ant-your-key
 
+# Batch folder translation
+python main.py translate -d /path/to/game/ -t ru
+python main.py translate -d /game/ -t ru --extensions .rpy .txt --output-dir /output/
+python main.py translate -d /game/ -t de --no-recursive --service google --format json
+
 # Use custom config file
 python main.py translate "Hello" --config /path/to/config.json
 ```
@@ -231,6 +251,24 @@ python main.py translate "Hello" --config /path/to/config.json
 | `languages` | `l` | List supported languages |
 | `detect` | `d` | Detect language of text |
 | `config` | `c` | Show or update configuration |
+
+### Batch Folder Translation (NEW in v2.6)
+
+**Translate an entire game folder or directory of files at once:**
+
+1. Click **"📁 Translate Folder"** button in the menu bar
+2. Select the folder containing your files (e.g., Ren'Py game folder)
+3. Review the file list in the confirmation dialog
+4. Click **Yes** to start batch translation
+5. Watch per-file progress: `[3/15] script.rpy ✓`
+6. View results summary with success/failure cards
+
+**CLI batch mode:**
+```bash
+python main.py translate -d /path/to/game/ -t ru
+```
+
+Output files are saved next to originals with language suffix: `script.rpy` → `script_ru.rpy`
 
 ### Basic Translation (GUI)
 
@@ -388,7 +426,8 @@ PolyTranslate/
 ├── app/
 │   ├── config/          # Configuration management
 │   ├── core/            # Core translation logic
-│   │   ├── renpy_context.py  # Ren'Py game context extractor (v2.4)
+│   │   ├── batch_translator.py  # Batch folder translation (v2.6)
+│   │   ├── renpy_context.py     # Ren'Py game context extractor (v2.4)
 │   │   └── ...
 │   ├── gui/             # Modern CustomTkinter UI (5 tabs)
 │   ├── services/        # Translation service implementations
@@ -397,7 +436,7 @@ PolyTranslate/
 │   │   └── ...          # Translation services (DeepL, Google, etc.)
 │   └── utils/           # Utilities (glossary, etc.)
 │   ├── cli.py           # Command-line interface (v2.5)
-├── tests/               # Test suite (350 tests, 91% coverage)
+├── tests/               # Test suite (382 tests, 91% coverage)
 ├── main.py              # Entry point (GUI or CLI)
 ├── requirements.txt     # Production dependencies
 ├── requirements-dev.txt # Development dependencies
@@ -449,6 +488,7 @@ pre-commit run --all-files  # Manual run
 ### Core Components
 
 - **Translator**: Orchestrates translation workflow, manages services
+- **BatchTranslator**: Batch folder translation — find files, translate, save (v2.6)
 - **AIEvaluator**: AI-powered translation quality analysis (single LLM)
 - **AgentVoting**: Multi-agent voting system with weighted consensus (v2.4)
 - **RenpyContextExtractor**: Game context parser for Ren'Py projects (v2.4)
@@ -496,13 +536,14 @@ class TranslationService(ABC):
 
 ## 📊 Testing
 
-- **Unit Tests**: 350 tests covering all core modules
+- **Unit Tests**: 382 tests covering all core modules
 - **Integration Tests**: End-to-end workflow testing
 - **Coverage**: 91% code coverage
 - **CI/CD Ready**: All tests automated with pytest
 
 Test categories:
-- CLI commands (translate, services, languages, detect, config)
+- Batch folder translation (file discovery, per-file translation, progress, error handling)
+- CLI commands (translate, services, languages, detect, config, batch directory)
 - Translation service mocking (using `responses` library)
 - AI evaluation (prompt generation, score parsing, Ren'Py preservation)
 - Multi-agent voting (consensus, weighted scoring, graceful failure, JSON parsing)

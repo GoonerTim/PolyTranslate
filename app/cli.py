@@ -10,6 +10,7 @@ from typing import Any
 
 from app.config.languages import LANGUAGES
 from app.config.settings import Settings
+from app.core.batch_translator import BatchProgress, BatchTranslator
 from app.core.file_processor import FileProcessor
 from app.core.translator import Translator
 
@@ -25,9 +26,31 @@ def create_parser() -> argparse.ArgumentParser:
     tr = subparsers.add_parser("translate", aliases=["t"], help="Translate text or file")
     tr.add_argument("input", nargs="?", help="Text to translate (or use --file)")
     tr.add_argument("-f", "--file", type=str, help="Input file path")
+    tr.add_argument("-d", "--directory", type=str, help="Translate all files in directory")
     tr.add_argument("-o", "--output", type=str, help="Output file path (default: stdout)")
-    tr.add_argument("-s", "--source", type=str, default=None, help="Source language code (default: from config or auto)")
-    tr.add_argument("-t", "--target", type=str, default=None, help="Target language code (default: from config)")
+    tr.add_argument("--output-dir", type=str, help="Output directory for batch translation")
+    tr.add_argument(
+        "--extensions",
+        type=str,
+        nargs="+",
+        help="File extensions to process in batch mode (default: .rpy)",
+    )
+    tr.add_argument("--no-recursive", action="store_true", help="Do not search subdirectories")
+    tr.add_argument(
+        "--service",
+        type=str,
+        help="Service to use for output files in batch mode",
+    )
+    tr.add_argument(
+        "-s",
+        "--source",
+        type=str,
+        default=None,
+        help="Source language code (default: from config or auto)",
+    )
+    tr.add_argument(
+        "-t", "--target", type=str, default=None, help="Target language code (default: from config)"
+    )
     tr.add_argument(
         "--services",
         type=str,
@@ -37,11 +60,15 @@ def create_parser() -> argparse.ArgumentParser:
     tr.add_argument("--all-services", action="store_true", help="Use all available services")
     tr.add_argument("--chunk-size", type=int, default=None, help="Chunk size for splitting text")
     tr.add_argument("--max-workers", type=int, default=None, help="Max parallel workers")
-    tr.add_argument("--format", choices=["text", "json"], default="text", help="Output format (default: text)")
+    tr.add_argument(
+        "--format", choices=["text", "json"], default="text", help="Output format (default: text)"
+    )
     tr.add_argument("--config", type=str, default=None, help="Path to config.json")
 
     # --- services ---
-    svc = subparsers.add_parser("services", aliases=["s"], help="List available translation services")
+    svc = subparsers.add_parser(
+        "services", aliases=["s"], help="List available translation services"
+    )
     svc.add_argument("--config", type=str, default=None, help="Path to config.json")
 
     # --- languages ---
@@ -100,6 +127,9 @@ def cmd_translate(args: argparse.Namespace) -> None:
     settings = _load_settings(getattr(args, "config", None))
     translator = Translator(settings)
 
+    if getattr(args, "directory", None):
+        return _cmd_translate_directory(args, settings, translator)
+
     text = _get_text(args)
     source = args.source or settings.get_source_language()
     target = args.target or settings.get_target_language()
@@ -149,6 +179,105 @@ def cmd_translate(args: argparse.Namespace) -> None:
         print(f"Saved to {args.output}", file=sys.stderr)
     else:
         print(output)
+
+
+def _cmd_translate_directory(
+    args: argparse.Namespace,
+    settings: Settings,
+    translator: Translator,
+) -> None:
+    directory = Path(args.directory)
+    if not directory.is_dir():
+        print(f"Error: directory not found: {args.directory}", file=sys.stderr)
+        sys.exit(1)
+
+    source = args.source or settings.get_source_language()
+    target = args.target or settings.get_target_language()
+    chunk_size = args.chunk_size or settings.get_chunk_size()
+    max_workers = args.max_workers or settings.get_max_workers()
+
+    available = translator.get_available_services()
+    if not available:
+        print("Error: no translation services configured", file=sys.stderr)
+        sys.exit(1)
+
+    if args.all_services:
+        services = available
+    elif args.services:
+        invalid = [s for s in args.services if s not in available]
+        if invalid:
+            print(f"Error: unavailable services: {', '.join(invalid)}", file=sys.stderr)
+            sys.exit(1)
+        services = args.services
+    else:
+        configured = settings.get_selected_services()
+        services = [s for s in configured if s in available]
+        if not services:
+            services = available[:1]
+
+    extensions = {f".{e.lstrip('.')}" for e in args.extensions} if args.extensions else None
+    output_dir = Path(args.output_dir) if getattr(args, "output_dir", None) else None
+    recursive = not getattr(args, "no_recursive", False)
+    service_name = getattr(args, "service", None)
+
+    batch = BatchTranslator(translator)
+    files = batch.find_files(directory, extensions, recursive)
+
+    if not files:
+        ext_str = ", ".join(extensions) if extensions else ".rpy"
+        print(f"No {ext_str} files found in {directory}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Translating folder: {directory}", file=sys.stderr)
+    print(f"Found {len(files)} file(s)\n", file=sys.stderr)
+
+    def batch_progress(progress: BatchProgress) -> None:
+        idx = progress.current_file_index + 1
+        total = progress.total_files
+        name = progress.current_file_name
+        if progress.file_completed:
+            print("  ✓ Done\n", file=sys.stderr)
+        else:
+            print(f"[{idx}/{total}] {name}", file=sys.stderr)
+
+    results = batch.translate_folder(
+        directory=directory,
+        source_lang=source,
+        target_lang=target,
+        services=services,
+        extensions=extensions,
+        output_dir=output_dir,
+        service_name=service_name,
+        chunk_size=chunk_size,
+        max_workers=max_workers,
+        recursive=recursive,
+        progress_callback=batch_progress,
+    )
+
+    succeeded = sum(1 for r in results if r.success and not r.error)
+    skipped = sum(1 for r in results if r.success and r.error)
+    failed = sum(1 for r in results if not r.success)
+
+    print(f"\nResults: {succeeded} translated, {skipped} skipped, {failed} failed", file=sys.stderr)
+
+    if args.format == "json":
+        json_results = []
+        for r in results:
+            json_results.append(
+                {
+                    "source": str(r.source_path),
+                    "output": str(r.output_path) if r.output_path else None,
+                    "success": r.success,
+                    "error": r.error,
+                }
+            )
+        print(json.dumps(json_results, ensure_ascii=False, indent=2))
+    else:
+        for r in results:
+            if not r.success:
+                print(f"  FAILED: {r.source_path} — {r.error}", file=sys.stderr)
+            elif r.output_path:
+                print(f"  {r.output_path}")
 
 
 def _format_results(results: dict[str, str], fmt: str) -> str:

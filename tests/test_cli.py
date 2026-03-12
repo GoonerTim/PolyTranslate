@@ -370,6 +370,168 @@ class TestCmdTranslate:
         assert call_args.kwargs["services"] == ["deepl", "google"]
 
 
+class TestCmdTranslateDirectory:
+    def test_directory_flag_parsed(self):
+        parser = create_parser()
+        args = parser.parse_args(["translate", "-d", "/some/folder", "-t", "ru"])
+        assert args.directory == "/some/folder"
+        assert args.target == "ru"
+
+    def test_directory_with_output_dir(self):
+        parser = create_parser()
+        args = parser.parse_args(
+            [
+                "translate",
+                "-d",
+                "/game",
+                "--output-dir",
+                "/out",
+                "-t",
+                "ru",
+            ]
+        )
+        assert args.directory == "/game"
+        assert args.output_dir == "/out"
+
+    def test_directory_with_extensions(self):
+        parser = create_parser()
+        args = parser.parse_args(
+            [
+                "translate",
+                "-d",
+                "/game",
+                "--extensions",
+                ".rpy",
+                ".txt",
+                "-t",
+                "ru",
+            ]
+        )
+        assert args.extensions == [".rpy", ".txt"]
+
+    def test_directory_no_recursive(self):
+        parser = create_parser()
+        args = parser.parse_args(["translate", "-d", "/game", "--no-recursive"])
+        assert args.no_recursive is True
+
+    def test_directory_service_flag(self):
+        parser = create_parser()
+        args = parser.parse_args(["translate", "-d", "/game", "--service", "google"])
+        assert args.service == "google"
+
+    @patch("app.cli.BatchTranslator")
+    @patch("app.cli.Translator")
+    @patch("app.cli._load_settings")
+    def test_translate_directory(
+        self, mock_settings, mock_translator_cls, mock_batch_cls, tmp_path, capsys
+    ):
+        # Create test files
+        (tmp_path / "test.rpy").write_text('e "Hello"', encoding="utf-8")
+
+        settings = MagicMock()
+        settings.get_source_language.return_value = "en"
+        settings.get_target_language.return_value = "ru"
+        settings.get_chunk_size.return_value = 1000
+        settings.get_max_workers.return_value = 3
+        settings.get_selected_services.return_value = ["deepl"]
+        mock_settings.return_value = settings
+
+        mock_translator = MagicMock()
+        mock_translator.get_available_services.return_value = ["deepl"]
+        mock_translator_cls.return_value = mock_translator
+
+        from app.core.batch_translator import BatchFileResult
+
+        mock_batch = MagicMock()
+        mock_batch.find_files.return_value = [tmp_path / "test.rpy"]
+        mock_batch.translate_folder.return_value = [
+            BatchFileResult(
+                source_path=tmp_path / "test.rpy",
+                output_path=tmp_path / "test_ru.rpy",
+                success=True,
+                services_used=["deepl"],
+            )
+        ]
+        mock_batch_cls.return_value = mock_batch
+
+        run_cli(["translate", "-d", str(tmp_path), "-t", "ru"])
+        captured = capsys.readouterr()
+        assert "test_ru.rpy" in captured.out
+
+    def test_directory_not_found(self):
+        with pytest.raises(SystemExit) as exc_info:
+            run_cli(["translate", "-d", "/nonexistent/folder/xyz"])
+        assert exc_info.value.code == 1
+
+    @patch("app.cli.BatchTranslator")
+    @patch("app.cli.Translator")
+    @patch("app.cli._load_settings")
+    def test_translate_directory_no_files(
+        self, mock_settings, mock_translator_cls, mock_batch_cls, tmp_path
+    ):
+        settings = MagicMock()
+        settings.get_source_language.return_value = "en"
+        settings.get_target_language.return_value = "ru"
+        settings.get_chunk_size.return_value = 1000
+        settings.get_max_workers.return_value = 3
+        settings.get_selected_services.return_value = ["deepl"]
+        mock_settings.return_value = settings
+
+        mock_translator = MagicMock()
+        mock_translator.get_available_services.return_value = ["deepl"]
+        mock_translator_cls.return_value = mock_translator
+
+        mock_batch = MagicMock()
+        mock_batch.find_files.return_value = []
+        mock_batch_cls.return_value = mock_batch
+
+        with pytest.raises(SystemExit) as exc_info:
+            run_cli(["translate", "-d", str(tmp_path)])
+        assert exc_info.value.code == 1
+
+    @patch("app.cli.BatchTranslator")
+    @patch("app.cli.Translator")
+    @patch("app.cli._load_settings")
+    def test_translate_directory_json_output(
+        self, mock_settings, mock_translator_cls, mock_batch_cls, tmp_path, capsys
+    ):
+        (tmp_path / "a.rpy").write_text('e "Hi"', encoding="utf-8")
+
+        settings = MagicMock()
+        settings.get_source_language.return_value = "en"
+        settings.get_target_language.return_value = "ru"
+        settings.get_chunk_size.return_value = 1000
+        settings.get_max_workers.return_value = 3
+        settings.get_selected_services.return_value = ["deepl"]
+        mock_settings.return_value = settings
+
+        mock_translator = MagicMock()
+        mock_translator.get_available_services.return_value = ["deepl"]
+        mock_translator_cls.return_value = mock_translator
+
+        from app.core.batch_translator import BatchFileResult
+
+        mock_batch = MagicMock()
+        mock_batch.find_files.return_value = [tmp_path / "a.rpy"]
+        mock_batch.translate_folder.return_value = [
+            BatchFileResult(
+                source_path=tmp_path / "a.rpy",
+                output_path=tmp_path / "a_ru.rpy",
+                success=True,
+                services_used=["deepl"],
+            )
+        ]
+        mock_batch_cls.return_value = mock_batch
+
+        run_cli(["translate", "-d", str(tmp_path), "-t", "ru", "--format", "json"])
+        captured = capsys.readouterr()
+        import json
+
+        result = json.loads(captured.out)
+        assert len(result) == 1
+        assert result[0]["success"] is True
+
+
 class TestNoCommand:
     def test_no_command_shows_help(self, capsys):
         with pytest.raises(SystemExit) as exc_info:

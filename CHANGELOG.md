@@ -5,6 +5,52 @@ All notable changes to PolyTranslate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2026-03-12
+
+### Added
+
+#### Batch Folder Translation
+- **Batch folder translation**: Translate all files in a directory at once — GUI, CLI, and core API
+  - Point to a game folder and translate every `.rpy` file automatically
+  - Output naming: `script.rpy` → `script_ru.rpy` (language suffix added before extension)
+  - Ren'Py reconstruction: `.rpy` files keep their dialogue structure (labels, characters, code)
+  - Error resilience: failed files are skipped, remaining files continue translating
+  - Progress tracking: per-file progress callback with file index, name, and completion status
+
+- **New module** `app/core/batch_translator.py`:
+  - `BatchTranslator`: Orchestrates file discovery and per-file translation
+  - `find_files()`: Discovers files by extensions (default `.rpy`), recursive or non-recursive
+  - `translate_file()`: Translates single file, saves with language suffix
+  - `translate_folder()`: Translates all matching files with progress callback
+  - `BatchFileResult`: Dataclass (source_path, output_path, success, error, services_used)
+  - `BatchProgress`: Dataclass (current_file_index, total_files, current_file_name, file_completed)
+  - Output directory support with relative subdirectory structure preservation
+
+- **CLI batch mode** (`-d` / `--directory` flag):
+  - `python main.py translate -d /path/to/game/ -t ru` — translate all `.rpy` files
+  - `--output-dir`: Save translated files to a separate directory
+  - `--extensions`: Filter by file extensions (e.g., `--extensions .rpy .txt`)
+  - `--no-recursive`: Only process top-level files (skip subdirectories)
+  - `--service`: Choose which service's output to save (when using multiple services)
+  - `--format json`: JSON report with source/output paths and success status
+  - Per-file progress display: `[3/15] chapter1.rpy ✓ Done`
+
+- **GUI "📁 Translate Folder" button**:
+  - New button in menu bar (next to "📂 Open")
+  - Folder picker → confirmation dialog showing file count, extensions, and services
+  - Threaded execution with per-file progress bar: `[3/15] script.rpy ✓`
+  - Results summary view with success/failure cards for each file
+  - Auto-fallback: tries `.rpy` first, then all supported extensions
+
+### Technical
+- New test file: `tests/test_batch_translator.py` — 25 tests, 88% coverage
+- Extended `tests/test_cli.py` with 9 batch directory tests (parser flags, execution, errors, JSON)
+- Updated exports in `app/core/__init__.py`
+- All tests passing (382 tests, 91% coverage)
+- Ruff lint and format clean
+
+---
+
 ## [2.5.0] - 2026-03-12
 
 ### Added
@@ -309,7 +355,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Planned Features
 - Cloud sync for glossary and settings
 - Translation memory (TMX support)
-- Batch file processing
 - API usage statistics and cost tracking
 - Custom translation engine plugins
 - Export to various formats (XLIFF, TMX, etc.)
@@ -320,6 +365,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **2.6.0** (2026-03-12) - Batch Folder Translation (GUI + CLI + API)
 - **2.5.0** (2026-03-12) - Command-Line Interface (CLI) mode
 - **2.4.0** (2026-03-12) - Multi-Agent Voting System + Ren'Py Context Awareness
 - **2.2.0** (2026-02-01) - Editable translations + original text comparison

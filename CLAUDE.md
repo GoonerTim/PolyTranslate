@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **PolyTranslate** - Modern translation application with beautiful GUI and full CLI mode. Supports 9 translation services (DeepL FREE, Google FREE, Yandex FREE, OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI) and 9 file formats (TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, MD, Ren'Py). Built with Python 3.10+ and CustomTkinter GUI.
 
-### Key Features (v2.5)
+### Key Features (v2.6)
 - **🆓 FREE Translation**: DeepL, Google, and Yandex work without API keys using unofficial public APIs
 - **🎨 Modern UI**: Completely redesigned interface with gradients, icons, animations, and card-based layout
 - **📑 Tabbed Interface**: All features in one window - Results, Comparison, AI Evaluation, History, Glossary tabs
@@ -15,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **🚀 Fast & Parallel**: Multi-threaded translation with real-time progress tracking
 - **📊 Service Comparison**: Compare original + translations from multiple services side-by-side in grid layout
 - **🤖 AI-Powered Evaluation**: Rate translation quality with scores (0-10), explanations, and AI-generated improvements
+- **📁 Batch Folder Translation**: Translate all files in a directory at once — GUI, CLI, and core API (v2.6)
 - **⌨️ CLI Mode**: Full command-line interface for scripting, automation, and terminal workflows (v2.5)
 - **🗳️ Multi-Agent Voting**: Multiple AI agents (local + cloud) independently evaluate and vote on best translations (v2.4)
 - **🎮 Ren'Py Context Awareness**: Game context extraction (characters, scenes, dialogue) for smarter translation of visual novels (v2.4)
@@ -29,6 +30,10 @@ python main.py
 # CLI mode
 python main.py translate "Hello world" -t ru
 python main.py --help
+
+# Batch folder translation (CLI)
+python main.py translate -d /path/to/game/ -t ru
+python main.py translate -d /path/to/game/ -t ru --extensions .rpy .txt --output-dir /output/
 ```
 
 ### Testing
@@ -124,6 +129,7 @@ User clicks "🤖 Evaluate All" / "🤖 Agent Vote"
 ```
 
 **Key Components:**
+- **BatchTranslator** (`app/core/batch_translator.py`): Batch folder translation — find files, translate each, save with language suffix (v2.6)
 - **AIEvaluator** (`app/services/ai_evaluator.py`): Single-service translation quality evaluation
 - **AgentVoting** (`app/services/agent_voting.py`): Multi-agent voting system with weighted consensus (v2.4)
 - **RenpyContextExtractor** (`app/core/renpy_context.py`): Game context parser for Ren'Py files (v2.4)
@@ -231,14 +237,26 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
   - `create_parser()`: Builds argparse parser with all commands, aliases, and options
   - `run_cli()`: Entry point — parses args and dispatches to command handlers
   - `cmd_translate()`: Translates text/file with progress bar, supports stdin pipe, JSON output
+  - `_cmd_translate_directory()`: Batch folder translation with per-file progress (v2.6)
   - `cmd_services()`: Lists all services with availability and selection status
   - `cmd_languages()`: Lists all supported language codes
   - `cmd_detect()`: Detects language of text/file
   - `cmd_config()`: Shows config (keys masked), sets values, manages API keys
   - Smart dispatch in `main.py`: CLI commands auto-detected from `sys.argv[1]`, falls back to GUI
+  - CLI flags for batch: `-d`/`--directory`, `--output-dir`, `--extensions`, `--no-recursive`, `--service` (v2.6)
 
 **Core Logic**:
 - **`app/core/translator.py`**: Orchestrates entire translation workflow, manages service lifecycle
+- **`app/core/batch_translator.py`**: Batch folder translation (v2.6)
+  - `BatchTranslator`: Orchestrates file discovery and per-file translation
+  - `find_files()`: Discovers files by extensions, recursive or not (default: `.rpy`)
+  - `translate_file()`: Translates single file, saves with language suffix (`script.rpy` → `script_ru.rpy`)
+  - `translate_folder()`: Translates all matching files with progress callback
+  - `BatchFileResult`: Dataclass (source_path, output_path, success, error, services_used)
+  - `BatchProgress`: Dataclass (current_file_index, total_files, current_file_name, file_completed)
+  - For `.rpy` files: extracts dialogue, translates, reconstructs via `FileProcessor.reconstruct_rpy()`
+  - Output directory support with relative path preservation
+  - Per-file error handling: failed files skipped, continues with rest
 - **`app/core/file_processor.py`**: File format handling (9 formats), encoding detection, content extraction
   - `split_rpy_by_scenes()`: Splits `.rpy` files by `label` blocks for scene-based processing (v2.4)
 - **`app/core/language_detector.py`**: Wrapper around langdetect with availability checks
@@ -283,6 +301,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
   - AI Evaluation tab shows detailed ratings and improved translation
   - Agent voting integration: auto-detects agents config, builds Ren'Py context, shows vote table (v2.4)
   - Button text dynamically switches: "🤖 Agent Vote" (with agents) / "🤖 Evaluate All" (without)
+  - "📁 Translate Folder" button in menu: batch folder translation with confirmation dialog, threaded execution, per-file progress, and result cards (v2.6)
 - **`app/gui/widgets/file_drop.py`**: Modern drag-drop zone with visual feedback
 - **`app/gui/widgets/progress.py`**: Modern horizontal progress bar
 - **`app/gui/settings_dialog.py`**: Settings dialog with API key configuration (still a popup for focused configuration)
@@ -296,7 +315,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 ### Testing Strategy
 
-**350 tests, 91% coverage** (GUI excluded)
+**382 tests, 91% coverage** (GUI excluded)
 
 - **Service Tests**: Mock HTTP with `responses` library. Example pattern:
   ```python
@@ -347,10 +366,20 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 - **CLI Tests** (`tests/test_cli.py`): Command-line interface testing (v2.5)
   - Parser creation and argument parsing for all commands
   - Translate: text, file, stdin, JSON output, file output, all-services, auto-detect
+  - Batch directory: `-d` flag, `--output-dir`, `--extensions`, `--no-recursive`, `--service` (v2.6)
   - Services listing, language listing, language detection
   - Config: show (masked keys), set values, set API keys
-  - Error handling: missing input, invalid services, file not found
-  - 33 tests
+  - Error handling: missing input, invalid services, file not found, directory not found
+  - 42 tests
+
+- **Batch Translator Tests** (`tests/test_batch_translator.py`): Batch folder translation testing (v2.6)
+  - File discovery: by extension, recursive/non-recursive, empty/nonexistent directories
+  - File translation: txt, rpy, empty files, output directory, subdirectory preservation
+  - Folder translation: multiple files, partial failure, progress callback
+  - Output naming: language suffix (`script_ru.rpy`), various extensions
+  - Error handling: API errors, service errors in results
+  - Dataclass creation for BatchFileResult and BatchProgress
+  - 25 tests with 88% coverage of batch_translator.py
 
 - **Integration Tests** (`tests/test_integration.py`): End-to-end workflows including file→process→translate→save, parallel processing, error handling, progress callbacks.
 
@@ -440,7 +469,7 @@ Runtime config (gitignored):
 
 - **API Key Security**: Never commit `config.json`. Keys stored locally only.
 
-- **Coverage Target**: 70% minimum (pyproject.toml), currently 91%. GUI excluded from coverage (`app/gui/*` omitted).
+- **Coverage Target**: 70% minimum (pyproject.toml), currently 91% (382 tests). GUI excluded from coverage (`app/gui/*` omitted).
 
 - **Ruff Configuration**: Line length 100, ignores E501 (line too long), uses modern Python features (UP rules).
 
