@@ -5,6 +5,84 @@ All notable changes to PolyTranslate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-03-12
+
+### Added
+
+#### Multi-Agent Voting System
+- **Agent Voting**: Multiple AI agents independently evaluate translations and vote on the best one
+  - Supports unlimited agents: mix local LLMs (LM Studio, Ollama) and cloud APIs (OpenAI, Claude, Groq)
+  - Weighted voting: assign different weights (0.5-2.0) to trusted agents
+  - Parallel execution via ThreadPoolExecutor for all agents simultaneously
+  - Weighted consensus scoring: `score = Σ(vote * weight) / Σ(weight)`
+  - Agreement tracking: shows how many agents agree on the best translation
+  - Merged/improved translation selected from highest-weight agent
+  - Graceful degradation: failed agents are skipped, voting continues with the rest
+  - 1 LLM call per agent (scores + merge in single prompt) for token efficiency
+
+- **New module** `app/services/agent_voting.py`:
+  - `AgentConfig`: Dataclass for agent definition (name, base_url, model, api_key, agent_type, weight)
+  - `AgentVote`: Single agent's response (scores, best pick, explanations, merged translation)
+  - `VotingResult`: Aggregated result (consensus scores, consensus best, agreement ratio)
+  - `AgentVoting`: Orchestrator class with parallel voting and consensus computation
+  - Reuses existing service classes (`LocalAIService`, `OpenAIService`, `ClaudeService`, `GroqService`)
+
+#### Ren'Py Context Awareness
+- **Game context extraction**: Automatically parse Ren'Py project folders for translation context
+  - Character parsing: finds all `define ... = Character(...)` declarations with names and colors
+  - Scene detection: identifies `label` blocks and which characters appear in each scene
+  - Dialogue preview: extracts first 5 lines of dialogue per scene
+  - Nearby dialogue: provides surrounding lines for better AI understanding
+  - Context string generation with configurable max_tokens truncation (default 1500)
+
+- **New module** `app/core/renpy_context.py`:
+  - `RenpyCharacter`: Dataclass (variable, name, color)
+  - `RenpyScene`: Dataclass (label, characters_present, dialogue_preview)
+  - `RenpyContext`: Dataclass (characters, scenes, current_scene, nearby_dialogue)
+  - `RenpyContextExtractor`: Main parser class scanning all `.rpy` files in game folder
+
+- **Scene-based Ren'Py processing**: New `FileProcessor.split_rpy_by_scenes()` method
+  - Splits `.rpy` files by `label` blocks into `(label_name, scene_content)` tuples
+  - Handles preamble content before first label
+  - Falls back to single chunk when no labels found
+  - Three processing modes configurable via settings: "scenes", "chunks", "full"
+
+#### Settings & UI
+- **AI Agents settings section** in Settings dialog:
+  - Dynamic agent rows with Name, Type (dropdown), URL, Model, API Key, Weight (slider)
+  - "+ Add Agent" button and "X" Remove button per row
+  - URL field auto-disabled for non-localai agent types
+
+- **Ren'Py Settings section** in Settings dialog:
+  - Game Folder: text field with "Browse" button (folder picker)
+  - Processing Mode: dropdown (By Scenes / By Chunks / Full File)
+
+- **Agent Votes section** in AI Evaluation tab:
+  - Table showing each agent's name, best pick, and scores
+  - Agreement indicator: "3/3 agents agree" or "2/3 majority"
+  - Color-coded: green for full agreement, yellow for partial
+
+- **Dynamic evaluate button text**:
+  - "🤖 Agent Vote" when agents are configured
+  - "🤖 Evaluate All" when using single AI evaluator
+
+- **New settings keys** in `config.json`:
+  - `agents`: list of agent configurations (name, base_url, model, api_key, agent_type, weight)
+  - `renpy_game_folder`: path to Ren'Py game folder
+  - `renpy_processing_mode`: "scenes" | "chunks" | "full" (default: "scenes")
+
+- Settings dialog window enlarged to 550x1050 to accommodate new sections
+
+### Technical
+- New test files:
+  - `tests/test_agent_voting.py` — 25 tests, 95% coverage
+  - `tests/test_renpy_context.py` — 13 tests, 92% coverage
+  - `tests/test_file_processor_renpy_scenes.py` — 6 tests
+  - `tests/test_settings.py` — 4 new tests for agent/ren'py defaults
+- Updated exports in `app/services/__init__.py` and `app/core/__init__.py`
+- All tests passing (317 tests, 91% coverage)
+- Ruff lint and format clean
+
 ## [2.2.0] - 2026-02-01
 
 ### Added
@@ -192,7 +270,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Planned Features
 - Cloud sync for glossary and settings
 - Translation memory (TMX support)
-- Quality estimation scoring
 - Batch file processing
 - API usage statistics and cost tracking
 - Custom translation engine plugins
@@ -205,6 +282,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **2.4.0** (2026-03-12) - Multi-Agent Voting System + Ren'Py Context Awareness
+- **2.2.0** (2026-02-01) - Editable translations + original text comparison
+- **2.1.0** (2026-02-01) - Tabbed interface redesign
 - **1.0.0** (2026-02-01) - Initial release
 
 ---
