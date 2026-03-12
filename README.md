@@ -9,7 +9,7 @@
 
 **Modern desktop translation application with beautiful UI, CLI mode, and support for multiple translation services**
 
-[Features](#features) • [Installation](#installation) • [Usage](#usage) • [CLI Mode](#-cli-mode) • [Supported Services](#supported-services) • [Development](#development)
+[Features](#-key-features) • [Installation](#-installation) • [Usage](#-usage) • [Supported Services](#-supported-services) • [Development](#-development)
 
 </div>
 
@@ -17,7 +17,7 @@
 
 ## 📋 Overview
 
-PolyTranslate is a feature-rich translation application with a **stunning modern UI** and a **full CLI mode**, built with Python and CustomTkinter. It allows you to translate text and documents using multiple translation APIs simultaneously, compare results, and manage terminology with a built-in glossary. Use the GUI for interactive work or the CLI for scripting and automation.
+PolyTranslate is a feature-rich translation application with a **modern UI** and a **full CLI mode**, built with Python and CustomTkinter. Translate text and documents using multiple translation APIs simultaneously, compare results, and manage terminology with a built-in glossary.
 
 ## 🆕 What's New in v2.6
 
@@ -32,7 +32,6 @@ Translate all files in a directory at once — in GUI, CLI, or via the Python AP
 - **Custom extensions**: `--extensions .rpy .txt` to translate any file types
 - **Output directory**: `--output-dir /output/` with subdirectory structure preserved
 - **Error resilience**: Failed files are skipped, the rest continue translating
-- **Ren'Py reconstruction**: `.rpy` files keep their structure (labels, characters, code)
 
 ```bash
 # Translate all .rpy files in a game folder
@@ -45,95 +44,35 @@ python main.py translate -d /game/ -t ru --extensions .rpy .txt --output-dir /ou
 python main.py translate -d /game/ -t de --no-recursive --service google --format json
 ```
 
-### Previous: v2.5
+<details>
+<summary>Previous versions</summary>
 
-**⌨️ Command-Line Interface (CLI)**
+**v2.5 — CLI Mode**: Full command-line interface for scripting, automation, and terminal workflows.
 
-Full CLI mode for scripting, automation, and terminal workflows — no GUI required!
+**v2.4 — Multi-Agent Voting**: Multiple AI agents vote on translation quality with weighted consensus. Ren'Py context awareness for visual novel translation.
 
-- **Translate text or files** directly from the terminal with `python main.py translate`
-- **Multiple services**: Use `--services deepl google` or `--all-services`
-- **JSON output**: `--format json` for easy integration with scripts and pipelines
-- **Pipe support**: `echo "Hello" | python main.py translate -t ru`
-- **File I/O**: `--file input.pdf --output result.txt`
-- **Config management**: View, set, and manage API keys from the CLI
-- **Language detection**: `python main.py detect "Bonjour"`
-- **Short aliases**: `t`, `s`, `l`, `d`, `c` for quick access
+**v2.3 — AI Evaluation**: Rate translations with scores (0-10), explanations, and AI-generated improvements.
 
-### Previous: v2.4
+**v2.2 — Editable Translations**: Edit translations directly in the interface with auto-save. Original text comparison.
 
-**🗳️ Multi-Agent Voting System**
+**v2.1 — Tabbed Interface**: All features in one window with integrated tabs.
 
-Let multiple AI agents independently evaluate your translations and vote on the best one!
-
-- **Unlimited agents**: Mix local LLMs (LM Studio, Ollama) and cloud APIs (OpenAI, Claude, Groq)
-- **Weighted voting**: Assign different weights to trusted agents for consensus scoring
-- **Parallel execution**: All agents evaluate simultaneously via ThreadPoolExecutor
-- **Agreement tracking**: See how many agents agree on the best translation
-- **Merged translation**: Best agent produces a combined improved version
-- **Graceful degradation**: Failed agents are skipped, voting continues with the rest
-
-**🎮 Ren'Py Context Awareness**
-
-Smarter translation for visual novels with automatic game context extraction:
-
-- **Character parsing**: Automatically finds all `define ... = Character(...)` declarations
-- **Scene detection**: Identifies `label` blocks and which characters appear in each
-- **Dialogue context**: Provides nearby dialogue lines to the AI for better understanding
-- **Processing modes**: Translate by scenes (recommended), by chunks, or full file
-- **Context injection**: Game context is automatically added to evaluation prompts
-
-Configure agents in Settings → "AI Agents" section. Set Ren'Py game folder in Settings → "Ren'Py Settings".
-
-### Previous: v2.3
-
-**🤖 AI-Powered Translation Evaluation**
-
-- **Rates each translation** with numerical scores (0-10) and detailed explanations
-- **Identifies the best translation** automatically with visual highlighting
-- **Generates an improved translation** combining the best aspects of all versions
-- **Works with any LLM** - OpenAI, Claude, Groq, or LocalAI
-- **Preserves Ren'Py structure** for game translation workflows
-- **Saves evaluations to history** for future reference
+</details>
 
 ### ✨ Key Features
 
 - **9 Translation Services**: DeepL (FREE), Google (FREE), Yandex (FREE), OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI
 - **9 File Formats**: TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, Markdown, Ren'Py scripts
-- **🆓 FREE Services**: DeepL, Google, and Yandex work without API keys using unofficial APIs
-- **📁 Batch Folder Translation**: Translate all files in a directory at once — GUI, CLI, and API (NEW v2.6)
+- **🆓 FREE Services**: DeepL, Google, and Yandex work without API keys
+- **📁 Batch Folder Translation**: Translate all files in a directory at once (v2.6)
 - **⌨️ CLI Mode**: Full command-line interface for scripting and automation (v2.5)
-- **🎨 Modern UI**: Beautiful redesigned interface with gradients, icons, and smooth animations
-- **📑 Tabbed Interface**: All features in one window - no popup dialogs
-- **✏️ Editable Translations**: Edit translations directly in the interface - all text areas are fully editable
-- **📄 Original Text Comparison**: Compare translations with source text side-by-side
-- **🤖 AI-Powered Evaluation**: Rate translation quality with scores (0-10), explanations, and AI-generated improvements
+- **🤖 AI Evaluation**: Rate translation quality with scores, explanations, and improvements
 - **🗳️ Multi-Agent Voting**: Multiple AI agents vote on translations with weighted consensus
 - **🎮 Ren'Py Context**: Game-aware translation with character/scene context extraction
 - **Parallel Processing**: Translate large texts in chunks with multiple workers
-- **Service Comparison**: Compare translations from different services side-by-side in grid layout
-- **Glossary Management**: Built-in glossary editor with real-time updates
-- **Translation History**: Track and review past translations with instant loading
-- **Auto Language Detection**: Automatically detect source language
-- **Dark/Light Themes**: Toggle between beautiful light and dark themes
+- **Glossary & History**: Built-in glossary editor and translation history
+- **Dark/Light Themes**: Toggle between light and dark themes
 - **Drag & Drop**: Easy file loading with visual feedback
-- **Progress Tracking**: Real-time translation progress with modern progress bar
-
-### 🎨 Modern Interface
-
-PolyTranslate features a completely redesigned modern UI with:
-
-- **Beautiful Design**: Card-based layout with gradients and smooth animations
-- **Tabbed Navigation**: 5 main tabs - Results, Comparison, AI Evaluation, History, Glossary
-- **Single Window**: Everything in one place - no popup windows or dialogs
-- **Icon Navigation**: Emoji-based menu system for intuitive navigation
-- **Visual Feedback**: Hover effects, color-coded states, and smooth transitions
-- **Service Icons**: Each translation service has a unique emoji identifier (🔷 DeepL, 🟣 Yandex, 🔴 Google, 🤖 AI, etc.)
-- **Modern Progress Bar**: Real-time progress with percentage and status
-- **Drag & Drop**: Visual feedback when dragging files (green highlight, success/error states)
-- **Empty States**: Beautiful placeholder screens with helpful messages
-- **Responsive Layout**: Adapts to different window sizes
-- **Instant Switching**: Navigate between translations, comparisons, evaluations, history, and glossary with one click
 
 ---
 
@@ -147,26 +86,16 @@ PolyTranslate features a completely redesigned modern UI with:
 ### Quick Install
 
 ```bash
-# Clone the repository
 git clone https://github.com/GoonerTim/PolyTranslate.git
 cd PolyTranslate
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Run the application
 python main.py
 ```
 
 ### Development Install
 
-For development with testing and linting tools:
-
 ```bash
-# Install development dependencies
 pip install -r requirements-dev.txt
-
-# Install pre-commit hooks
 pre-commit install
 ```
 
@@ -174,19 +103,21 @@ pre-commit install
 
 ## 📖 Usage
 
-### Running the Application
+### GUI Mode
 
 ```bash
-# Launch GUI
 python main.py
-
-# Or use CLI mode
-python main.py translate "Hello world" -t ru
 ```
 
-### ⌨️ CLI Mode
+1. **Load Text**: Drag & drop a file or click "Open"
+2. **Select Languages**: Choose source (or Auto) and target
+3. **Select Services**: Check one or more translation services
+4. **Translate**: Click "🚀 Translate"
+5. **View Results**: Results, Comparison, AI Evaluation, History, Glossary tabs
 
-PolyTranslate includes a full command-line interface for scripting and automation:
+**Batch Folder**: Click "📁 Translate Folder" → select folder → confirm → watch per-file progress.
+
+### ⌨️ CLI Mode
 
 ```bash
 # Translate text
@@ -194,226 +125,82 @@ python main.py translate "Hello world" -t ru
 python main.py t "Hello world" -t de              # short alias
 
 # Translate with specific services
-python main.py translate "Hello" --services deepl google
-
-# Use all available services
-python main.py translate "Hello" --all-services
+python main.py translate "Hello" --services deepl google --all-services
 
 # Translate a file
-python main.py translate -f document.pdf -s en -t ru
-
-# Save output to file
-python main.py translate "Hello" -o output.txt
+python main.py translate -f document.pdf -s en -t ru -o output.txt
 
 # JSON output for scripting
-python main.py translate "Hello" --format json --all-services
+python main.py translate "Hello" --format json
 
 # Pipe from stdin
 echo "Hello world" | python main.py translate -t ru
-cat document.txt | python main.py translate -t de -o result.txt
-
-# Detect language
-python main.py detect "Bonjour le monde"
-python main.py d "こんにちは"                       # short alias
-
-# List available services
-python main.py services
-
-# List supported languages
-python main.py languages
-
-# View configuration (API keys masked)
-python main.py config
-
-# Set configuration values
-python main.py config --set target_language de
-python main.py config --set chunk_size 2000
-
-# Set API keys
-python main.py config --set-key openai sk-your-key-here
-python main.py config --set-key anthropic sk-ant-your-key
 
 # Batch folder translation
 python main.py translate -d /path/to/game/ -t ru
 python main.py translate -d /game/ -t ru --extensions .rpy .txt --output-dir /output/
-python main.py translate -d /game/ -t de --no-recursive --service google --format json
 
-# Use custom config file
-python main.py translate "Hello" --config /path/to/config.json
+# Detect language
+python main.py detect "Bonjour le monde"
+
+# List services / languages
+python main.py services
+python main.py languages
+
+# Configuration
+python main.py config
+python main.py config --set target_language de
+python main.py config --set-key openai sk-your-key-here
 ```
-
-**CLI Commands:**
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `translate` | `t` | Translate text or file |
+| `translate` | `t` | Translate text, file, or directory |
 | `services` | `s` | List available translation services |
 | `languages` | `l` | List supported languages |
 | `detect` | `d` | Detect language of text |
 | `config` | `c` | Show or update configuration |
 
-### Batch Folder Translation (NEW in v2.6)
+### AI Evaluation & Multi-Agent Voting
 
-**Translate an entire game folder or directory of files at once:**
+1. Configure AI service in **Settings** → **AI Evaluation Settings**
+2. Optionally add agents in **Settings** → **AI Agents** (for multi-agent voting)
+3. Translate text, then click **"🤖 Evaluate All"** or **"🤖 Agent Vote"**
+4. View scores (0-10), explanations, best translation, and AI-improved version
 
-1. Click **"📁 Translate Folder"** button in the menu bar
-2. Select the folder containing your files (e.g., Ren'Py game folder)
-3. Review the file list in the confirmation dialog
-4. Click **Yes** to start batch translation
-5. Watch per-file progress: `[3/15] script.rpy ✓`
-6. View results summary with success/failure cards
+### Ren'Py Game Translation
 
-**CLI batch mode:**
-```bash
-python main.py translate -d /path/to/game/ -t ru
-```
-
-Output files are saved next to originals with language suffix: `script.rpy` → `script_ru.rpy`
-
-### Basic Translation (GUI)
-
-1. **Load Text**: Drag & drop a file or click "Open" to browse
-2. **Select Languages**: Choose source (or Auto) and target languages
-3. **Select Services**: Check one or more translation services
-4. **Translate**: Click the "🚀 Translate" button
-5. **View & Edit Results**:
-   - **📝 Results tab**: View individual translations from each service
-     - All translations are **fully editable** - click and type to modify
-     - Changes saved automatically
-     - Use 💾 Save button to export edited translation to file
-   - **📊 Comparison tab**: See original text + all translations side-by-side
-     - Original text shown in first panel (📄 icon, green color)
-     - Edit any translation directly in the comparison view
-     - Perfect for comparing quality and making adjustments
-   - Click "📊 Compare" button to quickly switch to comparison view
-
-### AI-Powered Evaluation (NEW in v2.3)
-
-**Analyze translation quality using AI:**
-
-1. **Complete a translation** with one or more services
-2. **Click "🤖 Evaluate All"** button (appears after translation)
-3. **View AI analysis** with:
-   - **Numerical scores** (0-10) for each translation
-   - **Detailed explanations** highlighting strengths and weaknesses
-   - **Best translation** automatically identified with 🏆 badge
-   - **AI-improved translation** combining the best aspects of all translations
-   - **Color-coded ratings**: Green (7+), Yellow (5-7), Red (<5)
-
-**Features:**
-- Works with **any LLM backend** (OpenAI, Claude, Groq, LocalAI)
-- **Ren'Py game files** supported with structure preservation
-- **All ratings displayed** in Results, Comparison, and dedicated AI Evaluation tabs
-- **Evaluations saved** to history for future reference
-- **Improved translation** is fully editable and exportable
-
-**Setup:**
-1. Open **Settings** (⚙️ button)
-2. Go to **AI Evaluation Settings** section
-3. Select your preferred AI service (OpenAI, Claude, Groq, or LocalAI)
-4. Must have valid API key configured for that service
-5. Leave empty to disable AI evaluation
-
-**Note:** AI evaluation requires API calls to the selected LLM service and may incur costs depending on your service provider.
-
-### Multi-Agent Voting (NEW in v2.4)
-
-**Let multiple AI agents vote on translation quality:**
-
-1. Open **Settings** (⚙️ button)
-2. Scroll to **AI Agents** section
-3. Click **"+ Add Agent"** for each LLM you want to use:
-   - **Name**: Agent display name (e.g., "Mistral 7B", "GPT-4o")
-   - **Type**: `localai` (local server), `openai`, `claude`, or `groq`
-   - **URL**: Server URL for LocalAI agents (e.g., `http://localhost:1234/v1`)
-   - **Model**: Model identifier
-   - **Weight**: Voting weight (0.5-2.0, higher = more influence)
-4. Translate text, then click **"🤖 Agent Vote"**
-5. View results in AI Evaluation tab:
-   - **Agent Votes table**: Each agent's scores and best pick
-   - **Agreement indicator**: "3/3 agents agree" or "2/3 majority"
-   - **Consensus scores**: Weighted average across all agents
-   - **Merged translation**: From highest-weight agent
-
-**Tip:** Mix local models (fast, free) with cloud APIs (higher quality) for best results.
-
-### Ren'Py Game Translation (NEW in v2.4)
-
-**Context-aware translation for visual novels:**
-
-1. Open **Settings** → **Ren'Py Settings**
-2. Set **Game Folder** to your Ren'Py project directory (containing `.rpy` files)
-3. Choose **Processing Mode**:
-   - **By Scenes** (recommended): Splits file by `label` blocks
-   - **By Chunks**: Standard text chunking
-   - **Full File**: Translate entire file at once
-4. Open a `.rpy` file and translate
-5. When evaluating/voting, the AI receives game context (characters, scenes, recent dialogue)
+1. Set **Game Folder** in **Settings** → **Ren'Py Settings**
+2. Choose **Processing Mode**: By Scenes (recommended), By Chunks, or Full File
+3. Open a `.rpy` file and translate — AI receives game context automatically
 
 ### Configuration
 
 **Start translating immediately** with DeepL, Google, and Yandex (no API keys required)!
 
 For other services, configure API keys in **Settings**:
-
-- **DeepL**: ✅ **Works FREE without API key** (or use official API key for higher limits)
-- **Google Translate**: ✅ **Works FREE without API key** (or use Google Cloud API for higher limits)
-- **Yandex Translate**: ✅ **Works FREE without API key** (or use Yandex Cloud API for higher limits)
-- **ChatGPT Proxy**: ✅ **No API key required** (uses proxy service)
-- **OpenAI**: Get API key from [platform.openai.com](https://platform.openai.com)
-- **Claude AI**: Get API key from [console.anthropic.com](https://console.anthropic.com)
-- **Groq**: Register at [groq.com](https://groq.com)
-- **OpenRouter**: Get key from [openrouter.ai](https://openrouter.ai)
-- **LocalAI**: Configure your local server URL
-
-### File Translation
-
-Supported formats:
-- **Text**: .txt, .md, .html
-- **Documents**: .pdf, .docx, .pptx
-- **Data**: .xlsx, .csv
-- **Game Scripts**: .rpy (Ren'Py)
-
-### Glossary Management
-
-1. Click **📚 Glossary** button in the menu (or switch to Glossary tab)
-2. Add term pairs (original → replacement)
-3. Toggle "Case Sensitive" option if needed
-4. Click "💾 Save" to apply changes
-5. Terms are automatically applied after translation
-6. Glossary persists in glossary.json
-
-### Translation History
-
-1. Click **📜 History** button in the menu (or switch to History tab)
-2. Browse past translations with timestamps and metadata
-3. Click any history card to reload that translation
-4. Delete individual entries or clear all history
-5. History limited to last 100 translations (auto-pruned)
+- **DeepL / Google / Yandex**: ✅ Works FREE without API key
+- **ChatGPT Proxy**: ✅ No API key required
+- **OpenAI / Claude / Groq / OpenRouter**: Requires API key
+- **LocalAI**: Requires local server URL
 
 ---
 
 ## 🔌 Supported Services
 
-| Service | API Key Required | Features | Languages |
-|---------|-----------------|----------|-----------|
-| **DeepL** | 🆓 **Optional** | Free API, high quality, fast | 30+ |
-| **Google Translate** | 🆓 **Optional** | Free API, comprehensive, reliable | 100+ |
-| **Yandex Translate** | 🆓 **Optional** | Free API, good for Cyrillic | 90+ |
+| Service | API Key | Features | Languages |
+|---------|---------|----------|-----------|
+| **DeepL** | 🆓 Optional | Free API, high quality | 30+ |
+| **Google Translate** | 🆓 Optional | Free API, comprehensive | 100+ |
+| **Yandex Translate** | 🆓 Optional | Free API, good for Cyrillic | 90+ |
 | **ChatGPT Proxy** | ❌ No | Free, no registration | 100+ |
-| **OpenAI GPT** | ✅ Yes | Context-aware, natural | All major |
-| **Claude AI** | ✅ Yes | High quality, detailed | All major |
+| **OpenAI GPT** | ✅ Yes | Context-aware | All major |
+| **Claude AI** | ✅ Yes | High quality | All major |
 | **Groq** | ✅ Yes | Fast inference | All major |
 | **OpenRouter** | ✅ Yes | Multiple models | All major |
 | **LocalAI** | ❌ No* | Self-hosted, private | Depends on model |
 
 *Requires local server setup
-
-### 🆓 Free Services
-
-**DeepL**, **Google**, and **Yandex** now work without API keys! The application uses their unofficial public APIs when no API key is provided. If you have an API key, it will be used with automatic fallback to the free API if it fails.
-
-**Note**: Free APIs are unofficial and may have rate limits or break if the APIs change. Official API keys are recommended for production use.
 
 ---
 
@@ -427,177 +214,58 @@ PolyTranslate/
 │   ├── config/          # Configuration management
 │   ├── core/            # Core translation logic
 │   │   ├── batch_translator.py  # Batch folder translation (v2.6)
-│   │   ├── renpy_context.py     # Ren'Py game context extractor (v2.4)
+│   │   ├── renpy_context.py     # Ren'Py game context extractor
 │   │   └── ...
 │   ├── gui/             # Modern CustomTkinter UI (5 tabs)
 │   ├── services/        # Translation service implementations
-│   │   ├── agent_voting.py   # Multi-agent voting system (v2.4)
-│   │   ├── ai_evaluator.py   # AI-powered evaluation service
-│   │   └── ...          # Translation services (DeepL, Google, etc.)
 │   └── utils/           # Utilities (glossary, etc.)
-│   ├── cli.py           # Command-line interface (v2.5)
+│   ├── cli.py           # Command-line interface
 ├── tests/               # Test suite (382 tests, 91% coverage)
 ├── main.py              # Entry point (GUI or CLI)
-├── requirements.txt     # Production dependencies
-├── requirements-dev.txt # Development dependencies
 └── pyproject.toml       # Project configuration
 ```
 
-### Running Tests
+### Commands
 
 ```bash
-# Run all tests with coverage
-pytest
-
-# Run specific test file
-pytest tests/test_translator.py -v
-
-# Generate HTML coverage report
-pytest --cov-report=html
+pytest                       # Run all tests with coverage
+ruff check . && ruff format . --check  # Lint and format check
+mypy app/                    # Type checking
+pre-commit run --all-files   # Run all pre-commit hooks
+pyinstaller build.spec       # Build executable
 ```
 
-### Code Quality
-
-```bash
-# Linting
-ruff check .
-
-# Auto-fix issues
-ruff check . --fix
-
-# Formatting
-ruff format .
-
-# Type checking
-mypy app/
-```
-
-### Pre-commit Hooks
-
-Automatically runs linting and formatting before commits:
-
-```bash
-pre-commit install       # One-time setup
-pre-commit run --all-files  # Manual run
-```
-
----
-
-## 🏗️ Architecture
-
-### Core Components
+### Architecture
 
 - **Translator**: Orchestrates translation workflow, manages services
-- **BatchTranslator**: Batch folder translation — find files, translate, save (v2.6)
-- **AIEvaluator**: AI-powered translation quality analysis (single LLM)
-- **AgentVoting**: Multi-agent voting system with weighted consensus (v2.4)
-- **RenpyContextExtractor**: Game context parser for Ren'Py projects (v2.4)
-- **FileProcessor**: Handles file format reading/writing
-- **LanguageDetector**: Auto-detects source language
-- **Settings**: Manages API keys, agents, and application configuration
-- **Glossary**: Term replacement engine
-
-### Translation Workflow
-
-```
-File/Text → Process → Split into chunks → Parallel translation →
-Reassemble → Apply glossary → Display results → (Optional) AI Evaluation
-```
-
-### AI Evaluation Workflow
-
-```
-User clicks "Evaluate All" / "Agent Vote"
-  → If agents configured: parallel multi-agent voting with weighted consensus
-  → Else: single AI Evaluator with 2 LLM calls (scores + improvement)
-  → Display in Results/Comparison/AI Evaluation tabs → Save to history
-```
-
-### Service Architecture
-
-All translation services implement the `TranslationService` interface:
-
-```python
-class TranslationService(ABC):
-    @abstractmethod
-    def translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        """Translate text from source to target language."""
-
-    @abstractmethod
-    def is_configured(self) -> bool:
-        """Check if service has required credentials."""
-
-    @abstractmethod
-    def get_name(self) -> str:
-        """Return human-readable service name."""
-```
+- **BatchTranslator**: Batch folder translation (v2.6)
+- **AIEvaluator**: AI-powered translation quality analysis
+- **AgentVoting**: Multi-agent voting with weighted consensus
+- **FileProcessor**: File format reading/writing (9 formats)
+- **Settings / Glossary / LanguageDetector**: Configuration, term replacement, language detection
 
 ---
 
 ## 📊 Testing
 
-- **Unit Tests**: 382 tests covering all core modules
-- **Integration Tests**: End-to-end workflow testing
-- **Coverage**: 91% code coverage
-- **CI/CD Ready**: All tests automated with pytest
-
-Test categories:
-- Batch folder translation (file discovery, per-file translation, progress, error handling)
-- CLI commands (translate, services, languages, detect, config, batch directory)
-- Translation service mocking (using `responses` library)
-- AI evaluation (prompt generation, score parsing, Ren'Py preservation)
-- Multi-agent voting (consensus, weighted scoring, graceful failure, JSON parsing)
-- Ren'Py context extraction (characters, scenes, dialogue, truncation)
-- Ren'Py scene splitting (label boundaries, preamble handling)
-- Free API fallback mechanisms
-- File format processing
-- Parallel translation
-- Error handling
-- Settings persistence
-- Language detection
+- **382 tests**, **91% coverage** (GUI excluded)
+- Service mocking, AI evaluation, agent voting, batch translation, CLI, file formats, integration tests
 
 ---
 
 ## 🌍 Supported Languages
 
-The application supports 40+ languages including:
-
-English, Russian, German, French, Spanish, Italian, Dutch, Polish, Portuguese, Chinese, Japanese, Korean, Arabic, Turkish, Ukrainian, Czech, Swedish, Danish, Finnish, Norwegian, Hungarian, Greek, Hebrew, Thai, Vietnamese, Indonesian, Malay, Romanian, Bulgarian, Slovak, Slovenian, Croatian, Serbian, Lithuanian, Latvian, Estonian
+40+ languages including: English, Russian, German, French, Spanish, Italian, Dutch, Polish, Portuguese, Chinese, Japanese, Korean, Arabic, Turkish, Ukrainian, Czech, Swedish, Danish, Finnish, Norwegian, Hungarian, Greek, Hebrew, Thai, Vietnamese, Indonesian, and more.
 
 *Language availability depends on the selected translation service*
 
 ---
 
-## ⚙️ Configuration Files
-
-- **config.json**: API keys, application settings, AI evaluator, agent voting, and Ren'Py configuration
-- **glossary.json**: Custom terminology dictionary
-- **history.json**: Translation history with evaluation scores and AI improvements
-
-All configuration files are stored in the application directory and are user-editable.
-
----
-
 ## 🔒 Privacy & Security
 
-- **Local Processing**: Files are processed locally
-- **Secure Storage**: API keys stored in local config file
+- **Local Processing**: Files processed locally
 - **No Tracking**: No analytics or user tracking
-- **Data Control**: You control what gets sent to translation APIs
 - **Self-Hosted Option**: Use LocalAI for complete privacy
-
----
-
-## 📦 Building Executable
-
-Create standalone .exe using PyInstaller:
-
-```bash
-# Build using spec file
-pyinstaller build.spec
-
-# Executable will be in dist/PolyTranslate/
-```
 
 ---
 
@@ -605,54 +273,22 @@ pyinstaller build.spec
 
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests and linting (`pytest && ruff check .`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+1. Fork → Create branch → Make changes → Run tests → PR
 
 ---
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-## 🐛 Bug Reports & Feature Requests
+## 🐛 Bug Reports
 
-Please use [GitHub Issues](https://github.com/GoonerTim/PolyTranslate/issues) to report bugs or request features.
-
-When reporting bugs, please include:
-- Python version
-- Operating system
-- Steps to reproduce
-- Error messages/logs
-
----
-
-## 🙏 Acknowledgments
-
-Built with:
-- [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) - Modern UI framework
-- [PyPDF2](https://github.com/py-pdf/pypdf2) - PDF processing
-- [python-docx](https://python-docx.readthedocs.io/) - DOCX processing
-- [pandas](https://pandas.pydata.org/) - Data file processing
-- [NLTK](https://www.nltk.org/) - Natural language processing
-- [langdetect](https://github.com/Mimino666/langdetect) - Language detection
-
----
-
-## 📮 Contact
-
-Project Link: [https://github.com/GoonerTim/PolyTranslate](https://github.com/GoonerTim/polytranslate)
+Please use [GitHub Issues](https://github.com/GoonerTim/PolyTranslate/issues).
 
 ---
 
 <div align="center">
-Made with ❤️ by the GoonerTim
+Made with ❤️ by GoonerTim
 </div>
