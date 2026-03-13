@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from tkinter import filedialog
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import customtkinter as ctk
 
-if TYPE_CHECKING:
-    from app.config.settings import Settings
+from app.config.settings import Settings
 
 
 class SettingsDialog(ctk.CTkToplevel):
@@ -110,45 +109,26 @@ class SettingsDialog(ctk.CTkToplevel):
         self._create_model_dropdown(
             "OpenAI Model:",
             "openai_model",
-            [
-                "gpt-4-turbo-preview",
-                "gpt-4",
-                "gpt-3.5-turbo",
-                "gpt-4o",
-                "gpt-4o-mini",
-            ],
+            Settings.OPENAI_MODELS,
         )
 
         # Claude Model
         self._create_model_dropdown(
             "Claude Model:",
             "claude_model",
-            [
-                "claude-3-opus-20240229",
-                "claude-3-sonnet-20240229",
-                "claude-3-haiku-20240307",
-                "claude-2.1",
-                "claude-2.0",
-                "claude-instant-1.2",
-            ],
+            Settings.CLAUDE_MODELS,
         )
 
         # Groq Model
         self._create_model_dropdown(
             "Groq Model:",
             "groq_model",
-            [
-                "mixtral-8x7b-32768",
-                "llama2-70b-4096",
-                "gemma-7b-it",
-                "llama3-8b-8192",
-                "llama3-70b-8192",
-            ],
+            Settings.GROQ_MODELS,
         )
 
         # OpenRouter Model
         self.openrouter_model_entry = self._create_labeled_entry(
-            "OpenRouter Model:", "openai/gpt-3.5-turbo"
+            "OpenRouter Model:", "openai/gpt-4o-mini"
         )
 
         # AI Evaluation Settings
@@ -252,6 +232,44 @@ class SettingsDialog(ctk.CTkToplevel):
             justify="left",
         )
         renpy_mode_helper.pack(fill="x", padx=10, pady=(2, 5))
+
+        # Cache Settings
+        self._create_section_label("Cache Settings")
+
+        cache_toggle_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        cache_toggle_frame.pack(fill="x", padx=5, pady=5)
+
+        self.cache_enabled_var = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(
+            cache_toggle_frame,
+            text="Enable translation cache",
+            variable=self.cache_enabled_var,
+        ).pack(side="left", padx=5)
+
+        ctk.CTkButton(
+            cache_toggle_frame,
+            text="Clear Cache",
+            command=self._clear_cache,
+            width=100,
+            height=28,
+            corner_radius=6,
+            fg_color=("#ef4444", "#dc2626"),
+            hover_color=("#dc2626", "#b91c1c"),
+        ).pack(side="right", padx=5)
+
+        cache_size_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        cache_size_frame.pack(fill="x", padx=5, pady=5)
+
+        ctk.CTkLabel(cache_size_frame, text="Max Cache Size:").pack(side="left", padx=5)
+        self.cache_max_size_slider = ctk.CTkSlider(
+            cache_size_frame, from_=1000, to=50000, number_of_steps=49, width=200
+        )
+        self.cache_max_size_slider.pack(side="left", padx=10)
+        self.cache_max_size_label = ctk.CTkLabel(cache_size_frame, text="10000")
+        self.cache_max_size_label.pack(side="left", padx=5)
+        self.cache_max_size_slider.configure(
+            command=lambda v: self.cache_max_size_label.configure(text=str(int(v)))
+        )
 
         # Processing Settings
         self._create_section_label("Processing Settings")
@@ -454,6 +472,13 @@ class SettingsDialog(ctk.CTkToplevel):
         if row_data in self._agent_rows:
             self._agent_rows.remove(row_data)
 
+    def _clear_cache(self) -> None:
+        from app.utils.cache import TranslationCache
+
+        cache = TranslationCache()
+        cache.clear()
+        cache.save()
+
     def _browse_renpy_folder(self) -> None:
         folder = filedialog.askdirectory(title="Select Ren'Py Game Folder")
         if folder:
@@ -509,6 +534,12 @@ class SettingsDialog(ctk.CTkToplevel):
 
         self.renpy_mode_var.set(self.settings.get("renpy_processing_mode", "scenes"))
 
+        # Cache settings
+        self.cache_enabled_var.set(self.settings.get("cache_enabled", True))
+        cache_max = self.settings.get("cache_max_size", 10000)
+        self.cache_max_size_slider.set(cache_max)
+        self.cache_max_size_label.configure(text=str(cache_max))
+
         # Processing settings
         self.chunk_size_slider.set(self.settings.get_chunk_size())
         self.chunk_size_label.configure(text=str(self.settings.get_chunk_size()))
@@ -556,6 +587,10 @@ class SettingsDialog(ctk.CTkToplevel):
         # Ren'Py settings
         self.settings.set("renpy_game_folder", self.renpy_folder_entry.get())
         self.settings.set("renpy_processing_mode", self.renpy_mode_var.get())
+
+        # Cache settings
+        self.settings.set("cache_enabled", self.cache_enabled_var.get())
+        self.settings.set("cache_max_size", int(self.cache_max_size_slider.get()))
 
         # Processing settings
         self.settings.set_chunk_size(int(self.chunk_size_slider.get()))

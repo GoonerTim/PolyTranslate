@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -10,13 +11,15 @@ from typing import TYPE_CHECKING, Any
 import chardet
 import pandas as pd
 import pptx
-import PyPDF2
+import pypdf
 from bs4 import BeautifulSoup
 from docx import Document
 from markdown import markdown
 
 if TYPE_CHECKING:
     pass
+
+logger = logging.getLogger(__name__)
 
 
 class FileProcessor:
@@ -93,7 +96,7 @@ class FileProcessor:
     def read_pdf(file_content: bytes) -> str:
         try:
             pdf_file = io.BytesIO(file_content)
-            pdf_reader = PyPDF2.PdfReader(pdf_file)
+            pdf_reader = pypdf.PdfReader(pdf_file)
             text = ""
             for page in pdf_reader.pages:
                 extracted = page.extract_text()
@@ -336,6 +339,7 @@ class FileProcessor:
         extension = path.suffix.lower().lstrip(".")
 
         if extension not in cls.SUPPORTED_EXTENSIONS:
+            logger.warning("Unsupported extension '%s', trying as plain text", extension)
             try:
                 content = path.read_bytes()
                 return cls.read_txt(content)

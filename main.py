@@ -26,11 +26,25 @@ def download_nltk_resources() -> None:
 
 
 def main() -> None:
+    from app.utils.logging import setup_logging
+
+    setup_logging()
+
     download_nltk_resources()
 
     if len(sys.argv) > 1 and sys.argv[1] in (
-        "translate", "t", "services", "s", "languages", "l",
-        "detect", "d", "config", "c", "--help", "-h",
+        "translate",
+        "t",
+        "services",
+        "s",
+        "languages",
+        "l",
+        "detect",
+        "d",
+        "config",
+        "c",
+        "--help",
+        "-h",
     ):
         from app.cli import run_cli
 

@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+
 from app.config.languages import get_language_name
 from app.services.base import TranslationService
+
+logger = logging.getLogger(__name__)
 
 try:
     from openai import OpenAI
@@ -22,7 +26,7 @@ class OpenRouterService(TranslationService):
     def __init__(
         self,
         api_key: str = "",
-        model: str = "openai/gpt-3.5-turbo",
+        model: str = "openai/gpt-4o-mini",
         site_url: str = "",
         site_name: str = "Translator App",
     ) -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import logging
 from typing import TYPE_CHECKING
 
 from nltk.tokenize import sent_tokenize
@@ -21,10 +22,13 @@ from app.services import (
     TranslationService,
     YandexService,
 )
+from app.utils.cache import TranslationCache
 from app.utils.glossary import Glossary
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+logger = logging.getLogger(__name__)
 
 
 class SimpleTokenizer:
@@ -65,7 +69,12 @@ class Translator:
         self.services: dict[str, TranslationService] = {}
         self.glossary = Glossary()
         self.language_detector = LanguageDetector()
+        self.cache = TranslationCache(
+            enabled=self.settings.get("cache_enabled", True),
+            max_size=self.settings.get("cache_max_size", 10000),
+        )
         self._initialize_services()
+        logger.info("Translator initialized with %d services", len(self.services))
 
     def _initialize_services(self) -> None:
         api_keys = self.settings.get_api_keys()
@@ -82,13 +91,13 @@ class Translator:
         if api_keys.get("openai"):
             self.services["openai"] = OpenAIService(
                 api_key=api_keys["openai"],
-                model=self.settings.get("openai_model", "gpt-3.5-turbo"),
+                model=self.settings.get("openai_model", "gpt-4o-mini"),
             )
 
         if api_keys.get("openrouter"):
             self.services["openrouter"] = OpenRouterService(
                 api_key=api_keys["openrouter"],
-                model=self.settings.get("openrouter_model", "openai/gpt-3.5-turbo"),
+                model=self.settings.get("openrouter_model", "openai/gpt-4o-mini"),
             )
 
         self.services["chatgpt_proxy"] = ChatGPTProxyService()
@@ -96,13 +105,13 @@ class Translator:
         if api_keys.get("groq"):
             self.services["groq"] = GroqService(
                 api_key=api_keys["groq"],
-                model=self.settings.get("groq_model", "mixtral-8x7b-32768"),
+                model=self.settings.get("groq_model", "llama-3.3-70b-versatile"),
             )
 
         if api_keys.get("anthropic"):
             self.services["claude"] = ClaudeService(
                 api_key=api_keys["anthropic"],
-                model=self.settings.get("claude_model", "claude-3-sonnet-20240229"),
+                model=self.settings.get("claude_model", "claude-sonnet-4-6"),
             )
 
         localai_url = self.settings.get("localai_url")
@@ -151,7 +160,13 @@ class Translator:
         if not service.is_configured():
             raise ValueError(f"Service '{service_name}' is not configured")
 
+        cached = self.cache.get(text, source_lang, target_lang, service_name)
+        if cached is not None:
+            logger.debug("Cache hit for %s (%s→%s)", service_name, source_lang, target_lang)
+            return self.glossary.apply(cached)
+
         translated = service.translate(text, source_lang, target_lang)
+        self.cache.put(text, source_lang, target_lang, service_name, translated)
         translated = self.glossary.apply(translated)
 
         return translated
@@ -171,6 +186,7 @@ class Translator:
                     chunk, source_lang, target_lang, service_name
                 )
             except Exception as e:
+                logger.error("Translation failed for service %s: %s", service_name, e)
                 results[service_name] = f"[Error: {e}]"
 
         return results
@@ -188,6 +204,12 @@ class Translator:
         chunks = self.split_text(text, chunk_size)
         total_tasks = len(chunks) * len(services)
         completed = 0
+        logger.info(
+            "Starting parallel translation: %d chunks, %d services, %d workers",
+            len(chunks),
+            len(services),
+            max_workers,
+        )
 
         all_results: dict[str, list[str]] = {service: [] for service in services}
 
@@ -195,6 +217,7 @@ class Translator:
             try:
                 result = self.translate(chunk, source_lang, target_lang, service_name)
             except Exception as e:
+                logger.error("Chunk %d failed for %s: %s", chunk_idx, service_name, e)
                 result = f"[Error: {e}]"
             return chunk_idx, service_name, result
 
@@ -223,6 +246,7 @@ class Translator:
         for service in final_results:
             final_results[service] = self.glossary.apply(final_results[service])
 
+        self.cache.save()
         return final_results
 
     def detect_language(self, text: str) -> str | None:

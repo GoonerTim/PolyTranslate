@@ -1,9 +1,12 @@
 import json
+import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
 from app.services.base import TranslationService
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -53,7 +56,8 @@ class AIEvaluator:
 
         try:
             improved_translation = self.llm_service.translate(improvement_prompt, "en", "en")
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to generate improved translation: %s", e)
             improved_translation = ""
 
         if is_renpy and improved_translation:

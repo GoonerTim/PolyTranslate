@@ -15,6 +15,7 @@ from app.core.renpy_context import RenpyContextExtractor
 from app.core.translator import Translator
 from app.gui.history_view import TranslationHistory
 from app.gui.settings_dialog import SettingsDialog
+from app.gui.widgets.diff_view import DiffView
 from app.gui.widgets.file_drop import FileDropZone
 from app.gui.widgets.progress import ProgressBar
 from app.services.agent_voting import AgentConfig, AgentVoting, VotingResult
@@ -386,6 +387,7 @@ class MainWindow:
         # Add all tabs
         self.results_tabview.add("📝 Results")
         self.results_tabview.add("📊 Comparison")
+        self.results_tabview.add("🔀 Diff")
         self.results_tabview.add("🤖 AI Evaluation")
         self.results_tabview.add("📜 History")
         self.results_tabview.add("📚 Glossary")
@@ -401,6 +403,10 @@ class MainWindow:
         # Comparison tab with initial empty state
         comparison_tab = self.results_tabview.tab("📊 Comparison")
         self._create_empty_comparison_state(comparison_tab)
+
+        # Diff tab with initial empty state
+        diff_tab = self.results_tabview.tab("🔀 Diff")
+        self._create_empty_diff_state(diff_tab)
 
         # History tab
         self.history_tab = self.results_tabview.tab("📜 History")
@@ -452,6 +458,30 @@ class MainWindow:
         ctk.CTkLabel(
             empty_frame,
             text="Complete a translation to see comparison view",
+            font=ctk.CTkFont(size=13),
+            text_color=("gray50", "gray60"),
+        ).pack(pady=5)
+
+    def _create_empty_diff_state(self, parent: ctk.CTkFrame) -> None:
+        empty_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        empty_frame.pack(fill="both", expand=True, padx=40, pady=40)
+
+        ctk.CTkLabel(
+            empty_frame,
+            text="🔀",
+            font=ctk.CTkFont(size=60),
+        ).pack(pady=(20, 10))
+
+        ctk.CTkLabel(
+            empty_frame,
+            text="No diff to display",
+            font=ctk.CTkFont(size=18, weight="bold"),
+        ).pack(pady=5)
+
+        ctk.CTkLabel(
+            empty_frame,
+            text="Translate text to see a line-by-line diff with the original.\n"
+            "Click ↩ on any line to revert it back.",
             font=ctk.CTkFont(size=13),
             text_color=("gray50", "gray60"),
         ).pack(pady=5)
@@ -1226,6 +1256,9 @@ class MainWindow:
         # Update comparison tab
         self._update_comparison_tab()
 
+        # Update diff tab
+        self._update_diff_tab()
+
     def _save_translation(self, text: str, service: str) -> None:
         from tkinter import filedialog
 
@@ -1425,6 +1458,63 @@ class MainWindow:
         copy_btn.pack(pady=10)
 
         return panel
+
+    def _update_diff_tab(self) -> None:
+        diff_tab = self.results_tabview.tab("🔀 Diff")
+        for widget in diff_tab.winfo_children():
+            widget.destroy()
+
+        if not self._translations or not self._original_text:
+            self._create_empty_diff_state(diff_tab)
+            return
+
+        service_icons = {
+            "deepl": "🔷", "yandex": "🟣", "google": "🔴", "openai": "🤖",
+            "openrouter": "🌐", "chatgpt_proxy": "💬", "groq": "⚡",
+            "claude": "🎭", "localai": "💻", "ai_improved": "✨",
+        }
+
+        services = list(self._translations.keys())
+
+        if len(services) == 1:
+            # Single service — show full diff directly
+            service = services[0]
+            diff_view = DiffView(
+                diff_tab,
+                on_change=lambda text, svc=service: self._on_diff_revert(svc, text),
+            )
+            diff_view.pack(fill="both", expand=True, padx=5, pady=5)
+            diff_view.set_diff(
+                self._original_text,
+                self._translations[service],
+                service_name=service,
+                service_icon=service_icons.get(service, ""),
+            )
+        else:
+            # Multiple services — tabview with one diff per service
+            diff_tabview = ctk.CTkTabview(diff_tab, corner_radius=8)
+            diff_tabview.pack(fill="both", expand=True, padx=5, pady=5)
+
+            for service in services:
+                icon = service_icons.get(service, "•")
+                tab_name = f"{icon} {service.upper()}"
+                diff_tabview.add(tab_name)
+                tab = diff_tabview.tab(tab_name)
+
+                diff_view = DiffView(
+                    tab,
+                    on_change=lambda text, svc=service: self._on_diff_revert(svc, text),
+                )
+                diff_view.pack(fill="both", expand=True)
+                diff_view.set_diff(
+                    self._original_text,
+                    self._translations[service],
+                    service_name=service,
+                    service_icon=icon,
+                )
+
+    def _on_diff_revert(self, service: str, text: str) -> None:
+        self._translations[service] = text
 
     def _show_comparison(self) -> None:
         if self._translations:

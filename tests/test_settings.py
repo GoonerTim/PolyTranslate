@@ -264,3 +264,151 @@ class TestSettings:
         assert len(loaded_agents) == 1
         assert loaded_agents[0]["name"] == "Mistral 7B"
         assert loaded_agents[0]["weight"] == 1.5
+
+    def test_default_models_updated(self, temp_dir: Path) -> None:
+        """Test that default models are current."""
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+
+        assert settings.get("openai_model") == "gpt-4o-mini"
+        assert settings.get("claude_model") == "claude-sonnet-4-6"
+        assert settings.get("groq_model") == "llama-3.3-70b-versatile"
+        assert settings.get("openrouter_model") == "openai/gpt-4o-mini"
+
+
+class TestSettingsValidation:
+    """Tests for settings validation."""
+
+    def test_validate_theme_valid(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        settings.set("theme", "light")
+        assert settings.get("theme") == "light"
+
+    def test_validate_theme_invalid(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        with pytest.raises(ValueError, match="Invalid value for 'theme'"):
+            settings.set("theme", "blue")
+
+    def test_validate_theme_wrong_type(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        with pytest.raises(ValueError, match="Invalid type for 'theme'"):
+            settings.set("theme", 123)
+
+    def test_validate_chunk_size_range(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        with pytest.raises(ValueError, match="must be >= 100"):
+            settings.set("chunk_size", 50)
+        with pytest.raises(ValueError, match="must be <= 5000"):
+            settings.set("chunk_size", 10000)
+
+    def test_validate_max_workers_range(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        with pytest.raises(ValueError, match="must be >= 1"):
+            settings.set("max_workers", 0)
+        with pytest.raises(ValueError, match="must be <= 10"):
+            settings.set("max_workers", 20)
+
+    def test_validate_cache_max_size(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        settings.set("cache_max_size", 5000)
+        assert settings.get("cache_max_size") == 5000
+        with pytest.raises(ValueError):
+            settings.set("cache_max_size", 50)
+
+    def test_validate_cache_enabled(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        settings.set("cache_enabled", False)
+        assert settings.get("cache_enabled") is False
+        with pytest.raises(ValueError, match="Invalid type"):
+            settings.set("cache_enabled", "yes")
+
+    def test_validate_deepl_plan(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        settings.set("deepl_plan", "pro")
+        assert settings.get("deepl_plan") == "pro"
+        with pytest.raises(ValueError, match="Invalid value"):
+            settings.set("deepl_plan", "enterprise")
+
+    def test_validate_renpy_processing_mode(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        settings.set("renpy_processing_mode", "chunks")
+        assert settings.get("renpy_processing_mode") == "chunks"
+        with pytest.raises(ValueError, match="Invalid value"):
+            settings.set("renpy_processing_mode", "invalid")
+
+    def test_validate_openai_model_valid(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        settings.set("openai_model", "gpt-4o")
+        assert settings.get("openai_model") == "gpt-4o"
+
+    def test_validate_openai_model_invalid(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        with pytest.raises(ValueError, match="Unknown model"):
+            settings.set("openai_model", "gpt-2")
+
+    def test_validate_claude_model_valid(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        settings.set("claude_model", "claude-sonnet-4-6")
+        assert settings.get("claude_model") == "claude-sonnet-4-6"
+
+    def test_validate_claude_model_invalid(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        with pytest.raises(ValueError, match="Unknown model"):
+            settings.set("claude_model", "claude-2.0")
+
+    def test_validate_groq_model_valid(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        settings.set("groq_model", "llama-3.3-70b-versatile")
+        assert settings.get("groq_model") == "llama-3.3-70b-versatile"
+
+    def test_validate_groq_model_invalid(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        with pytest.raises(ValueError, match="Unknown model"):
+            settings.set("groq_model", "llama2-70b-4096")
+
+    def test_validate_model_empty_string(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        with pytest.raises(ValueError, match="non-empty string"):
+            settings.set("openai_model", "")
+
+    def test_validate_model_wrong_type(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        with pytest.raises(ValueError, match="non-empty string"):
+            settings.set("claude_model", 123)
+
+    def test_unknown_key_no_validation(self, temp_dir: Path) -> None:
+        """Unknown keys pass through without validation."""
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        settings.set("custom_key", "any_value")
+        assert settings.get("custom_key") == "any_value"
+
+    def test_openrouter_model_no_validation(self, temp_dir: Path) -> None:
+        """OpenRouter model is free-form (any provider/model combo)."""
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        settings.set("openrouter_model", "anthropic/claude-3-opus")
+        assert settings.get("openrouter_model") == "anthropic/claude-3-opus"
+
+    def test_model_lists_on_settings_class(self) -> None:
+        """Model lists are accessible as class attributes."""
+        assert "gpt-4o" in Settings.OPENAI_MODELS
+        assert "claude-sonnet-4-6" in Settings.CLAUDE_MODELS
+        assert "llama-3.3-70b-versatile" in Settings.GROQ_MODELS

@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 import re
-import threading
 import time
 
 import requests
 
 from app.config.languages import DEEPL_LANG_MAP
 from app.services.base import TranslationService
+from app.utils.rate_limiter import RateLimiter
+
+logger = logging.getLogger(__name__)
 
 
 class DeepLService(TranslationService):
@@ -19,9 +22,7 @@ class DeepLService(TranslationService):
     PRO_API_URL = "https://api.deepl.com/v2/translate"
     UNOFFICIAL_API_URL = "https://www2.deepl.com/jsonrpc"
 
-    _last_free_request_time: float = 0
-    _free_api_lock = threading.Lock()
-    _min_request_interval = 1.0
+    _rate_limiter = RateLimiter(min_interval=1.0)
 
     _SENTENCE_PATTERN = re.compile(r'^\s+|(?:\s*\n)+\s*|[.!?"\x27:;\u0964](?:\s+)|\s+$')
 
@@ -33,8 +34,8 @@ class DeepLService(TranslationService):
         if self.api_key:
             try:
                 return self._translate_with_api_key(text, source_lang, target_lang)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("DeepL paid API failed, falling back to free: %s", e)
         return self._translate_free(text, source_lang, target_lang)
 
     def _translate_with_api_key(self, text: str, source_lang: str, target_lang: str) -> str:
@@ -140,12 +141,7 @@ class DeepLService(TranslationService):
         base_delay = 2.0
 
         for attempt in range(max_retries + 1):
-            with self._free_api_lock:
-                current_time = time.time()
-                time_since_last_request = current_time - DeepLService._last_free_request_time
-                if time_since_last_request < self._min_request_interval:
-                    time.sleep(self._min_request_interval - time_since_last_request)
-                DeepLService._last_free_request_time = time.time()
+            self._rate_limiter.wait()
 
             try:
                 response = requests.post(
@@ -154,6 +150,9 @@ class DeepLService(TranslationService):
             except requests.RequestException as e:
                 if attempt == max_retries:
                     raise ValueError(f"DeepL free API request failed: {e}") from e
+                logger.warning(
+                    "DeepL free API request error, retry %d/%d: %s", attempt + 1, max_retries, e
+                )
                 time.sleep(base_delay * (2**attempt))
                 continue
 
@@ -186,6 +185,12 @@ class DeepLService(TranslationService):
             if response.status_code == 429:
                 if attempt < max_retries:
                     delay = base_delay * (2**attempt)
+                    logger.warning(
+                        "DeepL rate limited (429), retry %d/%d after %.1fs",
+                        attempt + 1,
+                        max_retries,
+                        delay,
+                    )
                     time.sleep(delay)
                     continue
                 raise ValueError(

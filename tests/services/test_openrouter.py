@@ -70,3 +70,36 @@ class TestOpenRouterService:
 
         assert service.site_url == "https://example.com"
         assert service.site_name == "My App"
+
+    def test_is_configured_with_key(self) -> None:
+        service = OpenRouterService(api_key="test_key")
+        assert service.is_configured() is True
+
+    @patch("app.services.openrouter.OPENAI_AVAILABLE", True)
+    @patch("app.services.openrouter.OpenAI")
+    def test_translate_api_error(self, mock_openai_class: MagicMock) -> None:
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception("API down")
+
+        service = OpenRouterService(api_key="test_key")
+        service._client = mock_client
+
+        with pytest.raises(ValueError, match="OpenRouter API error"):
+            service.translate("Hello", "en", "ru")
+
+    @patch("app.services.openrouter.OPENAI_AVAILABLE", True)
+    @patch("app.services.openrouter.OpenAI")
+    def test_translate_with_auto_source(self, mock_openai_class: MagicMock) -> None:
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = "Результат"
+        mock_client.chat.completions.create.return_value = mock_response
+
+        service = OpenRouterService(api_key="test_key")
+        service._client = mock_client
+
+        result = service.translate("Hello", "auto", "ru")
+        assert result == "Результат"

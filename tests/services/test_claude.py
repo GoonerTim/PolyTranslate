@@ -24,15 +24,15 @@ class TestClaudeService:
 
     def test_get_name(self) -> None:
         """Test getting service name."""
-        service = ClaudeService(api_key="test_key", model="claude-3-opus-20240229")
-        assert "claude-3-opus-20240229" in service.get_name()
+        service = ClaudeService(api_key="test_key", model="claude-sonnet-4-6")
+        assert "claude-sonnet-4-6" in service.get_name()
         assert "Claude" in service.get_name()
 
     def test_available_models(self) -> None:
         """Test that available models are defined."""
-        assert "claude-3-opus-20240229" in ClaudeService.AVAILABLE_MODELS
-        assert "claude-3-sonnet-20240229" in ClaudeService.AVAILABLE_MODELS
-        assert "claude-3-haiku-20240307" in ClaudeService.AVAILABLE_MODELS
+        assert "claude-sonnet-4-6" in ClaudeService.AVAILABLE_MODELS
+        assert "claude-haiku-4-5-20251001" in ClaudeService.AVAILABLE_MODELS
+        assert "claude-3-5-sonnet-20241022" in ClaudeService.AVAILABLE_MODELS
 
     def test_translate_without_key(self) -> None:
         """Test translation attempt without API key."""

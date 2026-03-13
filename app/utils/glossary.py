@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class Glossary:
@@ -30,7 +33,8 @@ class Glossary:
                         self._case_sensitive = data.get("case_sensitive", False)
                     else:
                         self._entries = data
-            except (json.JSONDecodeError, OSError):
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning("Failed to load glossary from %s: %s", self.glossary_path, e)
                 self._entries = {}
         else:
             self._entries = {}

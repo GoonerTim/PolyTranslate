@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 import requests
 
 from app.config.languages import CHATGPT_PROXY_LANG_MAP
 from app.services.base import TranslationService
+
+logger = logging.getLogger(__name__)
 
 
 class ChatGPTProxyService(TranslationService):

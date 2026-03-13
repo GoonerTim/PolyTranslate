@@ -68,6 +68,7 @@ dmypy.json
 config.json
 history.json
 glossary.json
+cache.json
 
 # Logs
 *.log

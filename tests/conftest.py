@@ -11,6 +11,32 @@ from typing import Any
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _isolate_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure tests don't read/write the real cache.json."""
+    monkeypatch.setattr(
+        "app.utils.cache.TranslationCache.__init__",
+        lambda self, cache_path=None, max_size=10000, enabled=True: (
+            _original_cache_init(
+                self, cache_path=tmp_path / "cache.json", max_size=max_size, enabled=enabled
+            )
+        ),
+    )
+
+
+_original_cache_init = None  # type: ignore[assignment]
+
+
+def _store_original_init() -> None:
+    global _original_cache_init  # noqa: PLW0603
+    from app.utils.cache import TranslationCache
+
+    _original_cache_init = TranslationCache.__init__  # type: ignore[assignment]
+
+
+_store_original_init()
+
+
 @pytest.fixture
 def sample_text() -> str:
     """Sample text for translation."""

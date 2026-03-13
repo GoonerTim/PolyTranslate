@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+
 from app.config.languages import get_language_name
 from app.services.base import TranslationService
+
+logger = logging.getLogger(__name__)
 
 try:
     from openai import OpenAI
@@ -18,14 +22,16 @@ class OpenAIService(TranslationService):
     """OpenAI GPT translation service."""
 
     AVAILABLE_MODELS = [
-        "gpt-4-turbo-preview",
-        "gpt-4",
-        "gpt-3.5-turbo",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "gpt-4.1-nano",
         "gpt-4o",
         "gpt-4o-mini",
+        "o3-mini",
+        "gpt-4-turbo",
     ]
 
-    def __init__(self, api_key: str = "", model: str = "gpt-3.5-turbo") -> None:
+    def __init__(self, api_key: str = "", model: str = "gpt-4o-mini") -> None:
         self.api_key = api_key
         self.model = model
         self._client: OpenAI | None = None

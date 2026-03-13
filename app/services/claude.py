@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+
 from app.config.languages import get_language_name
 from app.services.base import TranslationService
+
+logger = logging.getLogger(__name__)
 
 try:
     from anthropic import Anthropic
@@ -18,15 +22,14 @@ class ClaudeService(TranslationService):
     """Anthropic Claude API translation service."""
 
     AVAILABLE_MODELS = [
-        "claude-3-opus-20240229",
-        "claude-3-sonnet-20240229",
-        "claude-3-haiku-20240307",
-        "claude-2.1",
-        "claude-2.0",
-        "claude-instant-1.2",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5-20251001",
+        "claude-3-7-sonnet-20250219",
+        "claude-3-5-sonnet-20241022",
+        "claude-3-5-haiku-20241022",
     ]
 
-    def __init__(self, api_key: str = "", model: str = "claude-3-sonnet-20240229") -> None:
+    def __init__(self, api_key: str = "", model: str = "claude-sonnet-4-6") -> None:
         self.api_key = api_key
         self.model = model
         self._client: Anthropic | None = None

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 import pptx
-import PyPDF2
+import pypdf
 from docx import Document
 
 from app.core.file_processor import FileProcessor
@@ -19,7 +19,7 @@ class TestFileProcessorPDF:
     def test_read_pdf_simple(self) -> None:
         """Test reading a simple PDF file."""
         # Create a simple PDF in memory
-        pdf_writer = PyPDF2.PdfWriter()
+        pdf_writer = pypdf.PdfWriter()
         pdf_writer.add_blank_page(width=200, height=200)
 
         # Add text to the page
@@ -33,7 +33,7 @@ class TestFileProcessorPDF:
 
     def test_read_pdf_empty(self) -> None:
         """Test reading an empty PDF."""
-        pdf_writer = PyPDF2.PdfWriter()
+        pdf_writer = pypdf.PdfWriter()
         pdf_writer.add_blank_page(width=200, height=200)
 
         output = io.BytesIO()

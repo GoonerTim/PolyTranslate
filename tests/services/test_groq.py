@@ -24,14 +24,14 @@ class TestGroqService:
 
     def test_get_name(self) -> None:
         """Test getting service name."""
-        service = GroqService(api_key="test_key", model="llama3-70b-8192")
-        assert "llama3-70b-8192" in service.get_name()
+        service = GroqService(api_key="test_key", model="llama-3.3-70b-versatile")
+        assert "llama-3.3-70b-versatile" in service.get_name()
         assert "Groq" in service.get_name()
 
     def test_available_models(self) -> None:
         """Test that available models are defined."""
         assert "mixtral-8x7b-32768" in GroqService.AVAILABLE_MODELS
-        assert "llama3-70b-8192" in GroqService.AVAILABLE_MODELS
+        assert "llama-3.3-70b-versatile" in GroqService.AVAILABLE_MODELS
 
     def test_translate_without_key(self) -> None:
         """Test translation attempt without API key."""

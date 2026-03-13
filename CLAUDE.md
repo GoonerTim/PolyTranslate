@@ -112,7 +112,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 - If API key exists: tries paid API first, falls back to free API on failure
 - If no API key: uses free API directly
 - `is_configured()` always returns `True` for these services
-- **DeepL Rate Limiting**: Uses class-level lock and timestamp to enforce 1-second minimum interval between free API requests; automatically retries with exponential backoff (2s, 4s, 8s) on HTTP 429 errors
+- **Rate Limiting**: All free services use `RateLimiter` (class-level, thread-safe) to enforce minimum interval between requests (DeepL: 1.0s, Google: 0.5s, Yandex: 0.5s); automatically retries with exponential backoff (2s, 4s, 8s) on HTTP 429 errors
 
 ### Key Architectural Decisions
 
@@ -141,7 +141,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 **CLI** (v2.5):
 - **`app/cli.py`**: Command-line interface with 5 commands (translate, services, languages, detect, config)
-  - `cmd_translate()`: Translates text/file with progress bar, supports stdin pipe, JSON output
+  - `cmd_translate()`: Translates text/file with progress bar and file info header (name, languages, services), supports stdin pipe, JSON output
   - `_cmd_translate_directory()`: Batch folder translation with per-file progress (v2.6)
   - CLI flags for batch: `-d`/`--directory`, `--output-dir`, `--extensions`, `--no-recursive`, `--service`
   - Smart dispatch in `main.py`: CLI commands auto-detected from `sys.argv[1]`, falls back to GUI
@@ -161,7 +161,10 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 - **`app/core/renpy_context.py`**: Ren'Py game context extractor — parses characters, scenes, dialogue from `.rpy` files
 
 **Configuration**:
-- **`app/config/settings.py`**: JSON persistence, API key management, config deep merge
+- **`app/config/settings.py`**: JSON persistence, API key management, config deep merge, settings validation
+  - `OPENAI_MODELS`, `CLAUDE_MODELS`, `GROQ_MODELS`: Canonical model lists (single source of truth for services, settings, and GUI)
+  - `VALIDATORS`: Declarative validation rules (type, choices, min/max) for known keys
+  - `validate()` called by `set()` — enforces types, ranges, allowed values, and model names
 - **`app/config/languages.py`**: Language code mappings for different services
 
 **Services** (with FREE API support):
@@ -178,9 +181,10 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 - **`app/services/agent_voting.py`**: Multi-agent voting system — parallel voting, weighted consensus, graceful degradation
 
 **Modern UI** (excluded from test coverage):
-- **`app/gui/main_window.py`**: Main window with 5 tabs (Results, Comparison, AI Evaluation, History, Glossary)
+- **`app/gui/main_window.py`**: Main window with 6 tabs (Results, Comparison, Diff, AI Evaluation, History, Glossary)
   - "📁 Translate Folder" button: batch folder translation with confirmation, threaded execution, per-file progress (v2.6)
   - Agent voting integration, dynamic evaluate button text
+- **`app/gui/widgets/diff_view.py`**: VS Code-style line-by-line diff with per-line revert buttons (`↩`), color-coded `+`/`-` lines, stats
 - **`app/gui/widgets/file_drop.py`**: Drag-drop zone
 - **`app/gui/widgets/progress.py`**: Progress bar
 - **`app/gui/settings_dialog.py`**: Settings dialog with AI Agents and Ren'Py sections
@@ -188,13 +192,19 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 **Utilities**:
 - **`app/utils/glossary.py`**: Term dictionary with post-processing replacement, JSON persistence
+- **`app/utils/logging.py`**: Structured logging setup — file handler (`polytranslate.log`) + optional console handler
+- **`app/utils/cache.py`**: Translation cache — in-memory + JSON persistence, LRU eviction, thread-safe
+- **`app/utils/rate_limiter.py`**: Thread-safe rate limiter — enforces minimum interval between free API requests, used by DeepL (1.0s), Google (0.5s), Yandex (0.5s)
 
 ### Testing Strategy
 
-**382 tests, 91% coverage** (GUI excluded)
+**457 tests, 91% coverage** (GUI excluded)
 
 - **Service Tests**: Mock HTTP with `responses` library
 - **Free API Tests**: Test fallback mechanism for DeepL, Google, and Yandex
+- **Diff View Tests** (`tests/test_diff_view.py`): 10 tests (diff logic, revert, edge cases)
+- **Settings Tests** (`tests/test_settings.py`): 43 tests (includes validation for types, ranges, models)
+- **Rate Limiter Tests** (`tests/test_rate_limiter.py`): 8 tests, 100% coverage
 - **AI Evaluator Tests** (`tests/test_ai_evaluator.py`): 19 tests, 97% coverage
 - **Agent Voting Tests** (`tests/test_agent_voting.py`): 25 tests, 95% coverage
 - **Ren'Py Context Tests** (`tests/test_renpy_context.py`): 13 tests, 92% coverage
@@ -208,7 +218,8 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 ### Configuration Files
 
 Runtime config (gitignored):
-- **`config.json`**: API keys, theme, chunk_size, max_workers, selected_services, ai_evaluator_service, agents, renpy_game_folder, renpy_processing_mode
+- **`config.json`**: API keys, theme, chunk_size, max_workers, selected_services, ai_evaluator_service, agents, renpy_game_folder, renpy_processing_mode, cache_enabled, cache_max_size
+- **`cache.json`**: Translation cache (auto-generated, gitignored)
 - **`glossary.json`**: User term dictionary
 - **`history.json`**: Translation history with evaluation scores
 
@@ -226,6 +237,7 @@ Runtime config (gitignored):
 1. Implement `_translate_with_api_key()` and `_translate_free()` methods
 2. `translate()` tries paid API first, falls back to free on error
 3. `is_configured()` always returns `True`
+4. Add class-level `_rate_limiter = RateLimiter(min_interval=...)` and call `self._rate_limiter.wait()` before each free API request
 
 ### Add Voting Agent Type
 
@@ -247,7 +259,9 @@ Runtime config (gitignored):
 - **Type Checking**: Mypy reports ~36 warnings mostly from CustomTkinter. Expected and acceptable.
 - **NLTK Data**: Downloaded at runtime in `main.py` if missing. Tests handle missing NLTK gracefully.
 - **API Key Security**: Never commit `config.json`. Keys stored locally only.
-- **Coverage Target**: 70% minimum (pyproject.toml), currently 91% (382 tests). GUI excluded.
+- **Logging**: `setup_logging()` called in `main.py` at startup. All modules use `logging.getLogger(__name__)`. Logs written to `polytranslate.log`.
+- **Translation Cache**: `TranslationCache` in `Translator` caches raw translations (before glossary). Key = text + source + target + service. LRU eviction, thread-safe, persisted to `cache.json`.
+- **Coverage Target**: 70% minimum (pyproject.toml), currently 91% (426 tests). GUI excluded.
 - **Ruff Configuration**: Line length 100, ignores E501, uses modern Python features (UP rules).
 - **Language Code Mappings**: Different services use different codes. See `app/config/languages.py`.
 - **GUI Threading**: All long-running operations must use `threading.Thread` with `root.after()` callbacks.
@@ -258,4 +272,5 @@ Runtime config (gitignored):
 
 1. **Free API Reliability**: Unofficial, may have rate limits, change without notice, or be blocked in some regions.
 2. **Chinese Language Detection**: Returns `zh`, `zh-cn`, or `zh-tw` depending on langdetect confidence.
-3. **PyPDF2 Deprecation**: Uses PyPDF2 (deprecated) but functional. Migration to pypdf planned but not urgent.
+3. **Retry Logic**: DeepL, Google, and Yandex free APIs retry up to 3 times with exponential backoff (2s, 4s, 8s) on network errors and HTTP 429.
+4. **Rate Limiter**: `RateLimiter` is class-level (shared across all instances), so parallel translation via `ThreadPoolExecutor` is properly throttled per service.

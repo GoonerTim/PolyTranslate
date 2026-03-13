@@ -3,12 +3,51 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class Settings:
     """Manages application settings stored in a JSON file."""
+
+    OPENAI_MODELS = [
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "gpt-4.1-nano",
+        "gpt-4o",
+        "gpt-4o-mini",
+        "o3-mini",
+        "gpt-4-turbo",
+    ]
+
+    CLAUDE_MODELS = [
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5-20251001",
+        "claude-3-7-sonnet-20250219",
+        "claude-3-5-sonnet-20241022",
+        "claude-3-5-haiku-20241022",
+    ]
+
+    GROQ_MODELS = [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "gemma2-9b-it",
+        "mixtral-8x7b-32768",
+    ]
+
+    VALIDATORS: dict[str, tuple[type, Any]] = {
+        "theme": (str, {"choices": ["dark", "light"]}),
+        "chunk_size": (int, {"min": 100, "max": 5000}),
+        "max_workers": (int, {"min": 1, "max": 10}),
+        "cache_max_size": (int, {"min": 100, "max": 100000}),
+        "cache_enabled": (bool, {}),
+        "deepl_plan": (str, {"choices": ["free", "pro"]}),
+        "renpy_processing_mode": (str, {"choices": ["scenes", "chunks", "full"]}),
+        "ai_evaluation_auto": (bool, {}),
+    }
 
     DEFAULT_SETTINGS: dict[str, Any] = {
         "api_keys": {
@@ -21,10 +60,10 @@ class Settings:
             "anthropic": "",
         },
         "deepl_plan": "free",
-        "openai_model": "gpt-3.5-turbo",
-        "openrouter_model": "openai/gpt-3.5-turbo",
-        "groq_model": "mixtral-8x7b-32768",
-        "claude_model": "claude-3-sonnet-20240229",
+        "openai_model": "gpt-4o-mini",
+        "openrouter_model": "openai/gpt-4o-mini",
+        "groq_model": "llama-3.3-70b-versatile",
+        "claude_model": "claude-sonnet-4-6",
         "localai_url": "",
         "localai_model": "default",
         "theme": "dark",
@@ -40,6 +79,8 @@ class Settings:
         "agents": [],
         "renpy_game_folder": "",
         "renpy_processing_mode": "scenes",
+        "cache_enabled": True,
+        "cache_max_size": 10000,
     }
 
     def __init__(self, config_path: str | Path | None = None) -> None:
@@ -57,7 +98,8 @@ class Settings:
                 with open(self.config_path, encoding="utf-8") as f:
                     loaded = json.load(f)
                 self._settings = self._deep_merge(self.DEFAULT_SETTINGS.copy(), loaded)
-            except (json.JSONDecodeError, OSError):
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning("Failed to load settings from %s: %s", self.config_path, e)
                 self._settings = self.DEFAULT_SETTINGS.copy()
         else:
             self._settings = self.DEFAULT_SETTINGS.copy()
@@ -81,7 +123,45 @@ class Settings:
     def get(self, key: str, default: Any = None) -> Any:
         return self._settings.get(key, default)
 
+    def validate(self, key: str, value: Any) -> None:
+        """Validate a setting value. Raises ValueError if invalid."""
+        if key in self.VALIDATORS:
+            expected_type, rules = self.VALIDATORS[key]
+            if not isinstance(value, expected_type):
+                raise ValueError(
+                    f"Invalid type for '{key}': expected {expected_type.__name__}, "
+                    f"got {type(value).__name__}"
+                )
+            if "choices" in rules and value not in rules["choices"]:
+                raise ValueError(
+                    f"Invalid value for '{key}': {value!r}. "
+                    f"Must be one of: {', '.join(str(c) for c in rules['choices'])}"
+                )
+            if "min" in rules and value < rules["min"]:
+                raise ValueError(
+                    f"Value for '{key}' must be >= {rules['min']}, got {value}"
+                )
+            if "max" in rules and value > rules["max"]:
+                raise ValueError(
+                    f"Value for '{key}' must be <= {rules['max']}, got {value}"
+                )
+
+        model_lists = {
+            "openai_model": self.OPENAI_MODELS,
+            "claude_model": self.CLAUDE_MODELS,
+            "groq_model": self.GROQ_MODELS,
+        }
+        if key in model_lists:
+            if not isinstance(value, str) or not value:
+                raise ValueError(f"Model for '{key}' must be a non-empty string")
+            if value not in model_lists[key]:
+                allowed = ", ".join(model_lists[key])
+                raise ValueError(
+                    f"Unknown model for '{key}': {value!r}. Available: {allowed}"
+                )
+
     def set(self, key: str, value: Any) -> None:
+        self.validate(key, value)
         self._settings[key] = value
 
     def get_api_keys(self) -> dict[str, str]:
@@ -99,25 +179,19 @@ class Settings:
         return self._settings.get("theme", "dark")
 
     def set_theme(self, theme: str) -> None:
-        if theme not in ("dark", "light"):
-            raise ValueError(f"Invalid theme: {theme}")
-        self._settings["theme"] = theme
+        self.set("theme", theme)
 
     def get_chunk_size(self) -> int:
         return self._settings.get("chunk_size", 1000)
 
     def set_chunk_size(self, size: int) -> None:
-        if size < 100 or size > 5000:
-            raise ValueError("Chunk size must be between 100 and 5000")
-        self._settings["chunk_size"] = size
+        self.set("chunk_size", size)
 
     def get_max_workers(self) -> int:
         return self._settings.get("max_workers", 3)
 
     def set_max_workers(self, workers: int) -> None:
-        if workers < 1 or workers > 10:
-            raise ValueError("Workers must be between 1 and 10")
-        self._settings["max_workers"] = workers
+        self.set("max_workers", workers)
 
     def get_selected_services(self) -> list[str]:
         return self._settings.get("selected_services", ["deepl"])

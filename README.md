@@ -3,7 +3,7 @@
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-382%20passed-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-457%20passed-brightgreen.svg)
 ![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
@@ -63,13 +63,15 @@ python main.py translate -d /game/ -t de --no-recursive --service google --forma
 
 - **9 Translation Services**: DeepL (FREE), Google (FREE), Yandex (FREE), OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI
 - **9 File Formats**: TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, Markdown, Ren'Py scripts
-- **🆓 FREE Services**: DeepL, Google, and Yandex work without API keys
+- **🆓 FREE Services**: DeepL, Google, and Yandex work without API keys (with built-in rate limiting)
 - **📁 Batch Folder Translation**: Translate all files in a directory at once (v2.6)
 - **⌨️ CLI Mode**: Full command-line interface for scripting and automation (v2.5)
 - **🤖 AI Evaluation**: Rate translation quality with scores, explanations, and improvements
 - **🗳️ Multi-Agent Voting**: Multiple AI agents vote on translations with weighted consensus
 - **🎮 Ren'Py Context**: Game-aware translation with character/scene context extraction
+- **Translation Cache**: Avoid redundant API calls — cached results reused automatically
 - **Parallel Processing**: Translate large texts in chunks with multiple workers
+- **🔀 Diff View**: VS Code-style line-by-line diff with per-line revert buttons
 - **Glossary & History**: Built-in glossary editor and translation history
 - **Dark/Light Themes**: Toggle between light and dark themes
 - **Drag & Drop**: Easy file loading with visual feedback
@@ -113,7 +115,7 @@ python main.py
 2. **Select Languages**: Choose source (or Auto) and target
 3. **Select Services**: Check one or more translation services
 4. **Translate**: Click "🚀 Translate"
-5. **View Results**: Results, Comparison, AI Evaluation, History, Glossary tabs
+5. **View Results**: Results, Comparison, Diff, AI Evaluation, History, Glossary tabs
 
 **Batch Folder**: Click "📁 Translate Folder" → select folder → confirm → watch per-file progress.
 
@@ -194,10 +196,10 @@ For other services, configure API keys in **Settings**:
 | **Google Translate** | 🆓 Optional | Free API, comprehensive | 100+ |
 | **Yandex Translate** | 🆓 Optional | Free API, good for Cyrillic | 90+ |
 | **ChatGPT Proxy** | ❌ No | Free, no registration | 100+ |
-| **OpenAI GPT** | ✅ Yes | Context-aware | All major |
-| **Claude AI** | ✅ Yes | High quality | All major |
-| **Groq** | ✅ Yes | Fast inference | All major |
-| **OpenRouter** | ✅ Yes | Multiple models | All major |
+| **OpenAI GPT** | ✅ Yes | GPT-4.1, GPT-4o, o3-mini | All major |
+| **Claude AI** | ✅ Yes | Sonnet 4.6, Haiku 4.5 | All major |
+| **Groq** | ✅ Yes | Llama 3.3, Gemma 2, Mixtral | All major |
+| **OpenRouter** | ✅ Yes | Any model via aggregator | All major |
 | **LocalAI** | ❌ No* | Self-hosted, private | Depends on model |
 
 *Requires local server setup
@@ -216,11 +218,11 @@ PolyTranslate/
 │   │   ├── batch_translator.py  # Batch folder translation (v2.6)
 │   │   ├── renpy_context.py     # Ren'Py game context extractor
 │   │   └── ...
-│   ├── gui/             # Modern CustomTkinter UI (5 tabs)
+│   ├── gui/             # Modern CustomTkinter UI (6 tabs)
 │   ├── services/        # Translation service implementations
-│   └── utils/           # Utilities (glossary, etc.)
+│   └── utils/           # Utilities (glossary, cache, rate limiter)
 │   ├── cli.py           # Command-line interface
-├── tests/               # Test suite (382 tests, 91% coverage)
+├── tests/               # Test suite (457 tests, 91% coverage)
 ├── main.py              # Entry point (GUI or CLI)
 └── pyproject.toml       # Project configuration
 ```
@@ -242,14 +244,15 @@ pyinstaller build.spec       # Build executable
 - **AIEvaluator**: AI-powered translation quality analysis
 - **AgentVoting**: Multi-agent voting with weighted consensus
 - **FileProcessor**: File format reading/writing (9 formats)
-- **Settings / Glossary / LanguageDetector**: Configuration, term replacement, language detection
+- **Settings**: Configuration with validation (types, ranges, model lists)
+- **Glossary / LanguageDetector**: Term replacement, language detection
 
 ---
 
 ## 📊 Testing
 
-- **382 tests**, **91% coverage** (GUI excluded)
-- Service mocking, AI evaluation, agent voting, batch translation, CLI, file formats, integration tests
+- **457 tests**, **91% coverage** (GUI excluded)
+- Service mocking, AI evaluation, agent voting, batch translation, CLI, settings validation, file formats, integration tests
 
 ---
 

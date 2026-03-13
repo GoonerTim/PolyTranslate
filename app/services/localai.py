@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+
 from app.config.languages import get_language_name
 from app.services.base import TranslationService
+
+logger = logging.getLogger(__name__)
 
 try:
     from openai import OpenAI

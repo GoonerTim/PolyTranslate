@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 try:
@@ -15,6 +16,8 @@ except ImportError:
 
 if TYPE_CHECKING:
     pass
+
+logger = logging.getLogger(__name__)
 
 
 class LanguageDetector:
@@ -75,7 +78,8 @@ class LanguageDetector:
             return lang
         except LangDetectException:
             return None
-        except Exception:
+        except Exception as e:
+            logger.debug("Language detection failed: %s", e)
             return None
 
     @classmethod

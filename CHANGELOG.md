@@ -42,11 +42,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Results summary view with success/failure cards for each file
   - Auto-fallback: tries `.rpy` first, then all supported extensions
 
+#### Translation Cache
+- **Translation cache**: `app/utils/cache.py` — avoids redundant API calls for previously translated text
+  - Cache key: text + source language + target language + service name (SHA-256 hashed)
+  - In-memory dict with JSON persistence (`cache.json`)
+  - LRU eviction when cache exceeds `cache_max_size` (default 10,000 entries)
+  - Thread-safe via `threading.Lock` (works with parallel translation)
+  - Caches raw translations before glossary application
+  - Configurable via `config.json`: `cache_enabled`, `cache_max_size`
+
+#### Rate Limiter
+- **Unified rate limiter**: `app/utils/rate_limiter.py` — thread-safe throttling for all free translation APIs
+  - Reusable `RateLimiter` class with configurable `min_interval` between requests
+  - Thread-safe via `threading.Lock` (works with `ThreadPoolExecutor` parallel translation)
+  - Class-level instance per service: DeepL (1.0s), Google (0.5s), Yandex (0.5s)
+  - `wait()` blocks until enough time has passed since the last request
+  - `reset()` method for clearing rate limit state
+  - Replaces DeepL's manual lock+timestamp implementation; adds rate limiting to Google and Yandex
+
+#### Structured Logging
+- **Logging system**: `app/utils/logging.py` with `setup_logging()` — file handler (`polytranslate.log`) + optional console handler
+- **All modules instrumented**: `logging.getLogger(__name__)` in 16 modules (core, services, config, utils)
+- **Key events logged**: service fallback (paid→free), API retries, rate limiting, translation errors, batch progress, config/glossary load errors
+- **Called at startup** in `main.py` — logs written to `polytranslate.log` in format `2026-03-13 12:00:00 [INFO] app.core.translator: ...`
+
+#### Diff View
+- **VS Code-style diff tab**: New "🔀 Diff" tab showing line-by-line diff between original and translated text
+  - Color-coded lines: red (`-`) for removed, green (`+`) for added, neutral for unchanged
+  - **Per-line revert** (`↩` button): click to restore original line, diff re-renders instantly
+  - Stats header: `+N -N =N` showing added/removed/unchanged line counts
+  - Legend bar with color key
+  - Single service: diff shown directly; multiple services: nested tabs with one diff per service
+  - Revert updates `_translations` dict — changes persist across tabs
+- **New widget** `app/gui/widgets/diff_view.py`: Reusable `DiffView` frame built on `difflib.SequenceMatcher`
+
+#### Settings Validation & Model Updates
+- **Settings validation**: `Settings.set()` now validates all known keys via declarative `VALIDATORS` table
+  - Type checking: rejects wrong types (e.g. string for `cache_enabled`)
+  - Choice validation: `theme`, `deepl_plan`, `renpy_processing_mode`
+  - Range validation: `chunk_size` [100..5000], `max_workers` [1..10], `cache_max_size` [100..100000]
+  - Model validation: `openai_model`, `claude_model`, `groq_model` checked against `AVAILABLE_MODELS`
+  - Unknown keys pass through without validation (extensible)
+- **Model lists updated** to current versions:
+  - OpenAI: gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini, o3-mini, gpt-4-turbo (default: `gpt-4o-mini`)
+  - Claude: claude-sonnet-4-6, claude-haiku-4-5, claude-3-7-sonnet, claude-3-5-sonnet, claude-3-5-haiku (default: `claude-sonnet-4-6`)
+  - Groq: llama-3.3-70b-versatile, llama-3.1-8b-instant, gemma2-9b-it, mixtral-8x7b (default: `llama-3.3-70b-versatile`)
+  - OpenRouter default: `openai/gpt-4o-mini`
+- **Canonical model lists**: `Settings.OPENAI_MODELS`, `Settings.CLAUDE_MODELS`, `Settings.GROQ_MODELS` — single source of truth used by services, settings, and GUI dialog
+- Removed deprecated models: gpt-3.5-turbo, claude-2.x, claude-instant, llama2, gemma-7b
+
+### Improved
+- **CLI file progress**: Single file translation now shows file name, language pair, and services before progress bar, with "Done." on completion
+- **PyPDF2 → pypdf**: Migrated from deprecated PyPDF2 to maintained `pypdf` library
+- **Retry for Google/Yandex**: Free APIs now retry up to 3 times with exponential backoff (2s, 4s, 8s) on network errors and HTTP 429, matching DeepL behavior
+- **Cache in CLI**: `cache.save()` called after single and batch translations in CLI mode
+- **Cache in GUI Settings**: "Cache Settings" section with enable/disable toggle, "Clear Cache" button, and max size slider
+
 ### Technical
-- New test file: `tests/test_batch_translator.py` — 25 tests, 88% coverage
+- New test files: `tests/test_batch_translator.py` (25 tests), `tests/test_cache.py` (19 tests), `tests/test_logging.py` (8 tests), `tests/test_rate_limiter.py` (8 tests)
 - Extended `tests/test_cli.py` with 9 batch directory tests (parser flags, execution, errors, JSON)
+- Extended service tests: Google retry/429 (8 tests), Yandex retry/429 (7 tests), OpenRouter (3 tests)
+- Test isolation: `conftest.py` autouse fixture redirects `TranslationCache` to temp directory
+- Extended `tests/test_settings.py` with 21 validation tests (types, ranges, models, edge cases)
 - Updated exports in `app/core/__init__.py`
-- All tests passing (382 tests, 91% coverage)
+- New test file: `tests/test_diff_view.py` (10 tests — diff logic, revert, edge cases)
+- All tests passing (457 tests, 91% coverage)
 - Ruff lint and format clean
 
 ---

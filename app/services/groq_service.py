@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+
 from app.config.languages import get_language_name
 from app.services.base import TranslationService
+
+logger = logging.getLogger(__name__)
 
 try:
     from groq import Groq
@@ -18,14 +22,13 @@ class GroqService(TranslationService):
     """Groq API translation service."""
 
     AVAILABLE_MODELS = [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "gemma2-9b-it",
         "mixtral-8x7b-32768",
-        "llama2-70b-4096",
-        "gemma-7b-it",
-        "llama3-8b-8192",
-        "llama3-70b-8192",
     ]
 
-    def __init__(self, api_key: str = "", model: str = "mixtral-8x7b-32768") -> None:
+    def __init__(self, api_key: str = "", model: str = "llama-3.3-70b-versatile") -> None:
         self.api_key = api_key
         self.model = model
         self._client: Groq | None = None

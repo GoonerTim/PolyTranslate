@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from app.core.file_processor import FileProcessor
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -56,6 +59,7 @@ class BatchTranslator:
             if path.is_file() and path.suffix.lower() in normalized:
                 files.append(path)
 
+        logger.info("Found %d files in %s (extensions: %s)", len(files), directory, normalized)
         return sorted(files)
 
     def translate_file(
@@ -109,8 +113,10 @@ class BatchTranslator:
 
             result.output_path = output_path
             result.success = True
+            logger.info("Translated %s -> %s", file_path.name, output_path)
 
         except Exception as e:
+            logger.error("Failed to translate %s: %s", file_path.name, e)
             result.error = str(e)
 
         return result

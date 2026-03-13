@@ -162,6 +162,13 @@ def cmd_translate(args: argparse.Namespace) -> None:
             source = detected
             print(f"Detected language: {LANGUAGES.get(source, source)}", file=sys.stderr)
 
+    is_file = bool(getattr(args, "file", None))
+    if is_file:
+        src_name = LANGUAGES.get(source, source) if source else "auto"
+        tgt_name = LANGUAGES.get(target, target) if target else target
+        print(f"Translating: {args.file}", file=sys.stderr)
+        print(f"  {src_name} → {tgt_name} | services: {', '.join(services)}", file=sys.stderr)
+
     results = translator.translate_parallel(
         text=text,
         source_lang=source,
@@ -172,6 +179,8 @@ def cmd_translate(args: argparse.Namespace) -> None:
         progress_callback=_progress_callback,
     )
 
+    translator.cache.save()
+
     output = _format_results(results, args.format)
 
     if args.output:
@@ -179,6 +188,9 @@ def cmd_translate(args: argparse.Namespace) -> None:
         print(f"Saved to {args.output}", file=sys.stderr)
     else:
         print(output)
+
+    if is_file:
+        print("Done.", file=sys.stderr)
 
 
 def _cmd_translate_directory(
@@ -253,6 +265,8 @@ def _cmd_translate_directory(
         recursive=recursive,
         progress_callback=batch_progress,
     )
+
+    translator.cache.save()
 
     succeeded = sum(1 for r in results if r.success and not r.error)
     skipped = sum(1 for r in results if r.success and r.error)

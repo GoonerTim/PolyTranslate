@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+import requests
 import responses
 
 from app.services.google import GoogleService
@@ -129,3 +130,107 @@ class TestGoogleService:
         with pytest.raises(ValueError) as exc_info:
             service.translate("Hello", "en", "ru")
         assert "parse" in str(exc_info.value).lower() or "unexpected" in str(exc_info.value).lower()
+
+    @responses.activate
+    def test_translate_paid_api_error(self) -> None:
+        responses.add(
+            responses.POST,
+            "https://translation.googleapis.com/language/translate/v2",
+            json={"error": "forbidden"},
+            status=403,
+        )
+
+        service = GoogleService(api_key="bad_key")
+        service._translate_free = lambda *a: "fallback"  # type: ignore[assignment]
+        result = service.translate("Hello", "en", "ru")
+        assert result == "fallback"
+
+    @responses.activate
+    def test_translate_paid_api_request_exception(self) -> None:
+        responses.add(
+            responses.POST,
+            "https://translation.googleapis.com/language/translate/v2",
+            body=requests.ConnectionError("timeout"),
+        )
+
+        service = GoogleService(api_key="key")
+        with pytest.raises(ValueError, match="Google API request failed"):
+            service._translate_with_api_key("Hello", "en", "ru")
+
+    @responses.activate
+    def test_translate_free_api_429_retry_then_success(self) -> None:
+        responses.add(
+            responses.GET,
+            "https://translate.googleapis.com/translate_a/single",
+            status=429,
+        )
+        responses.add(
+            responses.GET,
+            "https://translate.googleapis.com/translate_a/single",
+            json=[[["Привет", "Hello"]]],
+            status=200,
+        )
+
+        service = GoogleService(api_key="")
+        result = service._translate_free("Hello", "en", "ru")
+        assert result == "Привет"
+
+    @responses.activate
+    def test_translate_free_api_429_exhausted(self) -> None:
+        for _ in range(4):
+            responses.add(
+                responses.GET,
+                "https://translate.googleapis.com/translate_a/single",
+                status=429,
+            )
+
+        service = GoogleService(api_key="")
+        with pytest.raises(ValueError, match="rate limit"):
+            service._translate_free("Hello", "en", "ru")
+
+    @responses.activate
+    def test_translate_free_api_request_error_retry(self) -> None:
+        responses.add(
+            responses.GET,
+            "https://translate.googleapis.com/translate_a/single",
+            body=requests.ConnectionError("fail"),
+        )
+        responses.add(
+            responses.GET,
+            "https://translate.googleapis.com/translate_a/single",
+            json=[[["Привет", "Hello"]]],
+            status=200,
+        )
+
+        service = GoogleService(api_key="")
+        result = service._translate_free("Hello", "en", "ru")
+        assert result == "Привет"
+
+    @responses.activate
+    def test_translate_free_api_request_error_exhausted(self) -> None:
+        for _ in range(4):
+            responses.add(
+                responses.GET,
+                "https://translate.googleapis.com/translate_a/single",
+                body=requests.ConnectionError("fail"),
+            )
+
+        service = GoogleService(api_key="")
+        with pytest.raises(ValueError, match="request failed"):
+            service._translate_free("Hello", "en", "ru")
+
+    @responses.activate
+    def test_translate_free_api_max_retries_exceeded(self) -> None:
+        """Test the final fallthrough raise after all retries."""
+        # This covers the unreachable "Maximum retries exceeded" line
+        # by testing the retry exhaustion path via 429
+        for _ in range(4):
+            responses.add(
+                responses.GET,
+                "https://translate.googleapis.com/translate_a/single",
+                status=429,
+            )
+
+        service = GoogleService(api_key="")
+        with pytest.raises(ValueError):
+            service._translate_free("Hello", "en", "ru")
