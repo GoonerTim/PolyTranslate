@@ -58,6 +58,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Release pipeline** (`.github/workflows/release.yml`): Builds PyInstaller executables for Windows, Linux, macOS; packages as zip; creates GitHub Release with auto-generated notes — triggered on `v*` tags
 - Concurrency control: in-progress CI runs cancelled when new commits pushed
 
+#### Plugin Examples
+- **Example plugins**: Two ready-to-use examples in `examples/` to lower the barrier for plugin development
+  - `examples/plugin/` — minimal echo service (no dependencies, always configured)
+  - `examples/plugin-llm/` — AI service plugin (Mistral via OpenAI-compatible API, inherits `LLMTranslationService`)
+
 #### Rotating Log File
 - **Log rotation**: Replaced `FileHandler` with `RotatingFileHandler` — 10 MB max size, 3 backup files (`polytranslate.log.1`, `.2`, `.3`)
 - Prevents `polytranslate.log` from growing indefinitely

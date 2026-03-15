@@ -58,10 +58,21 @@ Enhancement suggestions are tracked as GitHub issues.
 
 ### Adding Translation Services
 
-To add a new translation service:
+There are two ways to add a translation service:
+
+#### Option A: Plugin (recommended for external/third-party services)
+
+Plugins require **no changes** to PolyTranslate source code. Create a separate Python package with a `TranslationService` subclass and register it via entry points. See [`examples/plugin/`](examples/plugin/) for a minimal example and [`examples/plugin-llm/`](examples/plugin-llm/) for an AI service example using `LLMTranslationService`.
+
+```bash
+pip install -e examples/plugin/       # try the echo example
+pip install -e examples/plugin-llm/   # try the Mistral AI example
+```
+
+#### Option B: Built-in service (for services shipped with PolyTranslate)
 
 1. Create a new file in `app/services/`
-2. Implement the `TranslationService` interface:
+2. Implement the `TranslationService` interface (or extend `LLMTranslationService` for OpenAI-compatible APIs):
 
 ```python
 from app.services.base import TranslationService

@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "polytranslate-mistral"
+version = "0.1.0"
+description = "Example PolyTranslate AI plugin — Mistral via OpenAI-compatible API"
+requires-python = ">=3.10"
+dependencies = ["openai>=1.0"]
+
+[project.entry-points."polytranslate.services"]
+mistral = "mistral_service:MistralTranslationService"
