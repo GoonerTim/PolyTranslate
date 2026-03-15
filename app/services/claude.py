@@ -29,13 +29,19 @@ class ClaudeService(LLMTranslationService):
         "claude-3-5-haiku-20241022",
     ]
 
-    def __init__(self, api_key: str = "", model: str = "claude-sonnet-4-6") -> None:
+    def __init__(
+        self, api_key: str = "", model: str = "claude-sonnet-4-6", timeout: float = 1800.0
+    ) -> None:
         super().__init__(
-            api_key=api_key, model=model, display_name="Claude", error_prefix="Claude API"
+            api_key=api_key,
+            model=model,
+            display_name="Claude",
+            error_prefix="Claude API",
+            timeout=timeout,
         )
 
     def _create_client(self) -> Any:
-        return Anthropic(api_key=self.api_key)
+        return Anthropic(api_key=self.api_key, timeout=self.timeout)
 
     def _is_available(self) -> bool:
         return ANTHROPIC_AVAILABLE

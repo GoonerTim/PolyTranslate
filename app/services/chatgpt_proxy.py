@@ -18,8 +18,8 @@ class ChatGPTProxyService(TranslationService):
 
     API_URL = "https://mtdev.bytequests.com/v1/translation/chat-gpt"
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, timeout: float = 1800.0) -> None:
+        self.timeout = timeout
 
     def translate(self, text: str, source_lang: str, target_lang: str) -> str:
         source_code = CHATGPT_PROXY_LANG_MAP.get(source_lang.lower(), -1)
@@ -52,7 +52,7 @@ class ChatGPTProxyService(TranslationService):
         }
 
         try:
-            response = httpx.post(self.API_URL, json=data, headers=headers, timeout=30.0)
+            response = httpx.post(self.API_URL, json=data, headers=headers, timeout=self.timeout)
         except httpx.RequestError as e:
             raise ValueError(f"ChatGPT Proxy request failed: {e}") from e
 

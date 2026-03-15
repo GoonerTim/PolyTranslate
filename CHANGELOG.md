@@ -29,6 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Configurable Service Timeout
+- **Per-service request timeout**: Configurable timeout for all translation service HTTP/SDK calls (default: 30 minutes)
+- Global `service_timeout` setting (5s–3600s) applied to all services by default
+- Per-service overrides via `service_timeouts` dict (e.g. `{"deepl": 15, "openai": 120}`)
+- All httpx-based services (DeepL, Google, Yandex, ChatGPT Proxy) use `self.timeout` instead of hardcoded 30s
+- All SDK-based services (OpenAI, Claude, Groq, OpenRouter, LocalAI) pass `timeout` to client constructors
+- `Translator._get_service_timeout()` resolves per-service override → global default
+- Settings validated with Pydantic (range 5–3600, type checking)
+
 #### Chunk Deduplication
 - **Request deduplication in parallel translation**: Identical chunks translated only once per service
 - `_translate_parallel_async()` and `_translate_parallel_sync()` deduplicate via `dict.fromkeys()`
@@ -95,7 +104,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `tests/test_logging.py` — assertions use `RotatingFileHandler` type
 - New file: `.github/workflows/ci.yml` — CI pipeline (lint, typecheck, test matrix)
 - New file: `.github/workflows/release.yml` — Release pipeline (build + GitHub Release)
-- All 652 tests passing, 93% coverage
+- Updated all service constructors: `timeout` parameter added to `DeepLService`, `GoogleService`, `YandexService`, `ChatGPTProxyService`, `LLMTranslationService`, `OpenAIService`, `GroqService`, `ClaudeService`, `OpenRouterService`, `LocalAIService`
+- Updated `app/core/translator.py` — `_get_service_timeout()`, timeout passed to all service constructors
+- Updated `app/config/schema.py` — `service_timeout`, `service_timeouts` fields with validators
+- Updated `app/config/settings.py` — default settings, `_FIELD_TYPES` entry
+- All 666 tests passing, 93% coverage
 - Ruff lint and format clean
 
 ---
@@ -517,7 +530,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
-- **3.1.0** (2026-03-15) - Streaming translation, Pydantic settings, Click CLI, chunk deduplication, language detection cache, CI/CD, log rotation, dependency updates
+- **3.1.0** (2026-03-15) - Configurable service timeout, streaming translation, Pydantic settings, Click CLI, chunk deduplication, language detection cache, CI/CD, log rotation, dependency updates
 - **3.0.0** (2026-03-14) - Export results (DOCX/PDF/XLIFF), TMX cache exchange, plugin system, SRT/ASS subtitles, GUI refactoring
 - **2.6.0** (2026-03-12) - Batch Folder Translation (GUI + CLI + API)
 - **2.5.0** (2026-03-12) - Command-Line Interface (CLI) mode

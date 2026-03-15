@@ -24,6 +24,7 @@ PolyTranslate is a feature-rich translation application with a **modern UI** and
 
 - **⚙️ Pydantic Settings**: Config validation powered by Pydantic schemas instead of hand-rolled validators
 - **🖥️ Click CLI**: CLI rewritten with Click — auto-generated help, type validation, cleaner code
+- **⏱️ Service Timeout**: Configurable per-service request timeout (default 30 min, range 5s–1h)
 - **⚡ Chunk Deduplication**: Identical text segments translated only once per service in parallel mode
 - **🧠 Detection Cache**: Language detection results cached (LRU, 256 entries) — no redundant API calls
 - **🌊 Streaming Translation**: LLM services stream tokens as they generate — live preview in GUI and CLI (`--stream`)
@@ -218,7 +219,7 @@ For other services, configure API keys in **Settings**:
 ```
 PolyTranslate/
 ├── app/
-│   ├── config/          # Configuration management
+│   ├── config/          # Configuration management (Pydantic schemas)
 │   ├── core/            # Core translation logic
 │   │   ├── batch_translator.py  # Batch folder translation
 │   │   ├── renpy_context.py     # Ren'Py game context extractor
@@ -234,7 +235,7 @@ PolyTranslate/
 │   ├── utils/           # Utilities (glossary, cache, rate limiter)
 │   └── cli.py           # Command-line interface
 ├── .github/workflows/   # CI/CD (lint, test, release)
-├── tests/               # Test suite (652 tests, 93% coverage)
+├── tests/               # Test suite (666 tests, 93% coverage)
 ├── main.py              # Entry point (GUI or CLI)
 └── pyproject.toml       # Project configuration
 ```
@@ -289,7 +290,7 @@ class MyService(TranslationService):
         return "My Service"
 ```
 
-For **OpenAI-compatible AI services**, inherit from `LLMTranslationService` instead — you only need to implement `_create_client()` and `_is_available()`. Translation, prompts, streaming, and error handling are all inherited.
+For **OpenAI-compatible AI services**, inherit from `LLMTranslationService` instead — you only need to implement `_create_client()` and `_is_available()`. Translation, prompts, streaming, timeout, and error handling are all inherited. Read timeout from `settings.get("service_timeouts")` / `settings.get("service_timeout")` and pass it to `super().__init__(timeout=...)` — see the Mistral example.
 
 Register it in your package's `pyproject.toml`:
 
@@ -306,8 +307,8 @@ See [`examples/plugin/`](examples/plugin/) for a minimal example and [`examples/
 
 ## 📊 Testing
 
-- **652 tests**, **93% coverage** (GUI excluded)
-- Service mocking, AI evaluation, agent voting, batch translation, CLI, streaming, settings validation, file formats, integration tests
+- **666 tests**, **93% coverage** (GUI excluded)
+- Service mocking, AI evaluation, agent voting, batch translation, CLI, streaming, settings validation, service timeout, file formats, integration tests
 
 ---
 

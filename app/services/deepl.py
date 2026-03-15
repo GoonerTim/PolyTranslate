@@ -26,9 +26,12 @@ class DeepLService(TranslationService):
 
     _SENTENCE_PATTERN = re.compile(r'^\s+|(?:\s*\n)+\s*|[.!?"\x27:;\u0964](?:\s+)|\s+$')
 
-    def __init__(self, api_key: str = "", is_free_plan: bool = True) -> None:
+    def __init__(
+        self, api_key: str = "", is_free_plan: bool = True, timeout: float = 1800.0
+    ) -> None:
         self.api_key = api_key
         self.is_free_plan = is_free_plan
+        self.timeout = timeout
 
     def translate(self, text: str, source_lang: str, target_lang: str) -> str:
         if self.api_key:
@@ -58,7 +61,7 @@ class DeepLService(TranslationService):
             params["source_lang"] = source_lang_deepl
 
         try:
-            response = httpx.post(url, data=params, timeout=30.0)
+            response = httpx.post(url, data=params, timeout=self.timeout)
         except httpx.RequestError as e:
             raise ValueError(f"DeepL API request failed: {e}") from e
 
@@ -140,7 +143,7 @@ class DeepLService(TranslationService):
         response = retry_with_backoff(
             self._rate_limiter,
             lambda: httpx.post(
-                self.UNOFFICIAL_API_URL, json=payload, headers=headers, timeout=30.0
+                self.UNOFFICIAL_API_URL, json=payload, headers=headers, timeout=self.timeout
             ),
             "DeepL free API",
         )

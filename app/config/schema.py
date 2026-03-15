@@ -71,6 +71,8 @@ class SettingsSchema(BaseModel):
     renpy_processing_mode: str = "scenes"
     cache_enabled: bool = True
     cache_max_size: int = 10000
+    service_timeout: float = 1800.0
+    service_timeouts: dict[str, float] = Field(default_factory=dict)
 
     @field_validator("theme")
     @classmethod
@@ -139,6 +141,41 @@ class SettingsSchema(BaseModel):
             raise ValueError(f"Value for 'cache_max_size' must be >= 100, got {v}")
         if v > 100000:
             raise ValueError(f"Value for 'cache_max_size' must be <= 100000, got {v}")
+        return v
+
+    @field_validator("service_timeout")
+    @classmethod
+    def validate_service_timeout(cls, v: float) -> float:
+        if not isinstance(v, (int, float)) or isinstance(v, bool):
+            raise ValueError(
+                f"Invalid type for 'service_timeout': expected float, got {type(v).__name__}"
+            )
+        v = float(v)
+        if v < 5:
+            raise ValueError(f"Value for 'service_timeout' must be >= 5, got {v}")
+        if v > 3600:
+            raise ValueError(f"Value for 'service_timeout' must be <= 3600, got {v}")
+        return v
+
+    @field_validator("service_timeouts")
+    @classmethod
+    def validate_service_timeouts(cls, v: dict[str, float]) -> dict[str, float]:
+        if not isinstance(v, dict):
+            raise ValueError(
+                f"Invalid type for 'service_timeouts': expected dict, got {type(v).__name__}"
+            )
+        for key, val in v.items():
+            if not isinstance(val, (int, float)) or isinstance(val, bool):
+                raise ValueError(
+                    f"Invalid timeout value for service '{key}': expected number, "
+                    f"got {type(val).__name__}"
+                )
+            val = float(val)
+            if val < 5 or val > 3600:
+                raise ValueError(
+                    f"Timeout for service '{key}' must be between 5 and 3600, got {val}"
+                )
+            v[key] = val
         return v
 
     @field_validator("cache_enabled")

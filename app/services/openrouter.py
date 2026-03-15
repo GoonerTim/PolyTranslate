@@ -26,12 +26,14 @@ class OpenRouterService(LLMTranslationService):
         model: str = "openai/gpt-4o-mini",
         site_url: str = "",
         site_name: str = "Translator App",
+        timeout: float = 1800.0,
     ) -> None:
         super().__init__(
             api_key=api_key,
             model=model,
             display_name="OpenRouter",
             error_prefix="OpenRouter API",
+            timeout=timeout,
         )
         self.site_url = site_url
         self.site_name = site_name
@@ -40,6 +42,7 @@ class OpenRouterService(LLMTranslationService):
         return OpenAI(
             base_url=self.BASE_URL,
             api_key=self.api_key,
+            timeout=self.timeout,
             default_headers={
                 "HTTP-Referer": self.site_url,
                 "X-Title": self.site_name,

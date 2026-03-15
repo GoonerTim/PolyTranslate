@@ -384,6 +384,77 @@ class TestSettingsValidation:
         settings.set("openrouter_model", "anthropic/claude-3-opus")
         assert settings.get("openrouter_model") == "anthropic/claude-3-opus"
 
+    def test_service_timeout_default(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        assert settings.get("service_timeout") == 1800.0
+
+    def test_service_timeout_set_valid(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        settings.set("service_timeout", 60.0)
+        assert settings.get("service_timeout") == 60.0
+
+    def test_service_timeout_set_int(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        settings.set("service_timeout", 45)
+        assert settings.get("service_timeout") == 45.0
+
+    def test_service_timeout_too_low(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        with pytest.raises(ValueError, match="must be >= 5"):
+            settings.set("service_timeout", 2.0)
+
+    def test_service_timeout_too_high(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        with pytest.raises(ValueError, match="must be <= 3600"):
+            settings.set("service_timeout", 5000.0)
+
+    def test_service_timeout_wrong_type(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        with pytest.raises(ValueError, match="expected float"):
+            settings.set("service_timeout", "fast")
+
+    def test_service_timeouts_default(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        assert settings.get("service_timeouts") == {}
+
+    def test_service_timeouts_set_valid(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        settings.set("service_timeouts", {"deepl": 10.0, "openai": 3600})
+        result = settings.get("service_timeouts")
+        assert result["deepl"] == 10.0
+        assert result["openai"] == 3600.0
+
+    def test_service_timeouts_invalid_value_too_low(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        with pytest.raises(ValueError, match="Timeout for service"):
+            settings.set("service_timeouts", {"deepl": 1.0})
+
+    def test_service_timeouts_invalid_value_too_high(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        with pytest.raises(ValueError, match="Timeout for service"):
+            settings.set("service_timeouts", {"openai": 7200.0})
+
+    def test_service_timeouts_persist(self, temp_dir: Path) -> None:
+        config_path = temp_dir / "config.json"
+        settings = Settings(config_path)
+        settings.set("service_timeout", 60.0)
+        settings.set("service_timeouts", {"deepl": 15.0})
+        settings.save()
+
+        settings2 = Settings(config_path)
+        assert settings2.get("service_timeout") == 60.0
+        assert settings2.get("service_timeouts") == {"deepl": 15.0}
+
     def test_model_lists_on_settings_class(self) -> None:
         """Model lists are accessible as class attributes."""
         assert "gpt-4o" in Settings.OPENAI_MODELS

@@ -78,11 +78,12 @@ pip install -e examples/plugin-llm/   # try the Mistral AI example
 from app.services.base import TranslationService
 
 class NewService(TranslationService):
-    def __init__(self, api_key: str = "") -> None:
+    def __init__(self, api_key: str = "", timeout: float = 1800.0) -> None:
         self.api_key = api_key
+        self.timeout = timeout  # use in httpx / SDK calls
 
     def translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        # Implementation
+        # Implementation — pass timeout=self.timeout to HTTP/SDK calls
         pass
 
     def is_configured(self) -> bool:
@@ -94,7 +95,8 @@ class NewService(TranslationService):
 
 3. Add tests in `tests/services/test_newservice.py`
 4. Register service in `app/services/__init__.py`
-5. Update documentation
+5. Add initialization in `Translator._initialize_services()` with `timeout=self._get_service_timeout("newservice")`
+6. Update documentation
 
 ### Adding File Format Support
 

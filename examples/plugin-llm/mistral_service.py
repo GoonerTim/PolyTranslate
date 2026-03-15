@@ -50,15 +50,21 @@ class MistralTranslationService(LLMTranslationService):
         # Plugin constructors always receive a Settings instance.
         # Read the API key from config.json -> api_keys -> mistral.
         api_key = settings.get_api_key("mistral") or ""
+
+        # Read timeout: per-service override ("mistral") or global default.
+        timeouts = settings.get("service_timeouts", {})
+        timeout = float(timeouts.get("mistral", settings.get("service_timeout", 1800.0)))
+
         super().__init__(
             api_key=api_key,
             model="mistral-large-latest",
             display_name="Mistral",
             error_prefix="Mistral API",
+            timeout=timeout,
         )
 
     def _create_client(self) -> Any:
-        return OpenAI(api_key=self.api_key, base_url=MISTRAL_BASE_URL)
+        return OpenAI(api_key=self.api_key, base_url=MISTRAL_BASE_URL, timeout=self.timeout)
 
     def _is_available(self) -> bool:
         return _AVAILABLE

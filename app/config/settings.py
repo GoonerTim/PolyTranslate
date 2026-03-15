@@ -59,6 +59,8 @@ class Settings:
         "renpy_processing_mode": "scenes",
         "cache_enabled": True,
         "cache_max_size": 10000,
+        "service_timeout": 1800.0,
+        "service_timeouts": {},
     }
 
     def __init__(self, config_path: str | Path | None = None) -> None:
@@ -124,6 +126,7 @@ class Settings:
         "cache_max_size": ("int", int),
         "cache_enabled": ("bool", bool),
         "ai_evaluation_auto": ("bool", bool),
+        "service_timeout": ("float", (int, float)),
     }
 
     def validate(self, key: str, value: Any) -> None:

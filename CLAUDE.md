@@ -18,6 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **🗳️ Multi-Agent Voting**: Multiple AI agents (local + cloud) independently evaluate and vote on best translations
 - **🎮 Ren'Py Context Awareness**: Game context extraction (characters, scenes, dialogue) for smarter translation of visual novels
 - **🌊 Streaming Translation**: LLM services (OpenAI, Claude, Groq, OpenRouter, LocalAI) stream tokens as they generate — visible in both GUI and CLI
+- **⏱️ Service Timeout**: Configurable per-service request timeout (default 30 min, 5s–1h range) — prevents frozen API calls from blocking the process
 
 ## Common Commands
 
@@ -132,6 +133,8 @@ class TranslationService(ABC):
 
 **Streaming Translation**: LLM services support token-by-token streaming via `translate_stream(text, source_lang, target_lang, on_token)` and `_call_llm_stream(prompt, on_token)`. OpenAI-compatible services use `stream=True` on `chat.completions.create()`; Claude uses `client.messages.stream()` context manager. Non-LLM services (DeepL, Google, Yandex) emit the full result as a single token. Cache hits also emit the full cached result. The `Translator.translate()` method accepts an optional `on_token` callback; `translate_parallel()` accepts `on_token: dict[str, Callable]` keyed by service name. GUI streams to per-service tabs via `root.after()`; CLI streams to stderr with `--stream` flag.
 
+**Service Timeout**: All services accept a `timeout` parameter (seconds) in their constructor. httpx-based services pass it to `httpx.post()/get()` calls; SDK-based services pass it to client constructors (`OpenAI(timeout=...)`, `Anthropic(timeout=...)`, `Groq(timeout=...)`). Default: 1800s (30 min). Configured via `service_timeout` (global) and `service_timeouts` (per-service overrides) in settings. `Translator._get_service_timeout(service_id)` resolves per-service override → global default.
+
 Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 **Plugin System** (v3.0): External packages can register services via the `polytranslate.services` entry point group. `app/core/plugin_loader.py::discover_plugins()` scans `importlib.metadata.entry_points`, calls each factory with `Settings`, validates the result is a `TranslationService`, and returns `PluginInfo` objects. Plugins are loaded after built-in services; built-in IDs always take precedence. Broken plugins are logged and skipped.
@@ -239,13 +242,13 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 ### Testing Strategy
 
-**652 tests, 93% coverage** (GUI excluded)
+**666 tests, 93% coverage** (GUI excluded)
 
 - **Service Tests**: Mock HTTP with `respx` library (httpx-compatible)
 - **Free API Tests**: Test fallback mechanism for DeepL, Google, and Yandex
 - **LLM Base Tests** (`tests/test_llm_base.py`): 18 tests, 100% coverage — translate, streaming (success, empty delta, empty choices, error wrapping), caching, auto source lang
 - **Diff View Tests** (`tests/test_diff_view.py`): 10 tests (diff logic, revert, edge cases)
-- **Settings Tests** (`tests/test_settings.py`): 43 tests (Pydantic-based validation for types, ranges, models)
+- **Settings Tests** (`tests/test_settings.py`): 55 tests (Pydantic-based validation for types, ranges, models, service timeout)
 - **Rate Limiter Tests** (`tests/test_rate_limiter.py`): 14 tests, 98% coverage — includes `retry_with_backoff()` retry/429/error tests
 - **AI Evaluator Tests** (`tests/test_ai_evaluator.py`): 19 tests, 98% coverage
 - **Agent Voting Tests** (`tests/test_agent_voting.py`): 25 tests, 89% coverage
@@ -257,7 +260,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 - **Export Tests** (`tests/test_exporter.py`): 23 tests (DOCX content, PDF validity, XLIFF structure)
 - **Cache TMX Tests** (`tests/test_cache_tmx.py`): 17 tests (export structure, import parsing, round-trip, Unicode, edge cases)
 - **Batch Translator Tests** (`tests/test_batch_translator.py` + `tests/test_batch_extended.py`): 35 tests, 80% coverage — output paths, empty files, progress, errors
-- **Translator Tests** (`tests/test_translator.py` + `tests/test_translator_extended.py`): 35 tests, 85% coverage — init, cache hit, parallel sync fallback, error capture, reload, streaming (LLM, non-LLM, cache hit, parallel on_token)
+- **Translator Tests** (`tests/test_translator.py` + `tests/test_translator_extended.py`): 38 tests, 85% coverage — init, cache hit, parallel sync fallback, error capture, reload, streaming (LLM, non-LLM, cache hit, parallel on_token), service timeout passthrough
 - **JSON Helpers Tests** (`tests/test_json_helpers.py`): 9 tests, 100% coverage — markdown fence stripping, error handling
 - **Language Tests** (`tests/test_languages.py`): 12 tests — language maps, code lookups, source/target filtering
 - **Integration Tests** (`tests/test_integration.py`): End-to-end workflows
@@ -271,7 +274,7 @@ Dependency management:
 - **`requirements.lock`**: Full `pip freeze` snapshot — exact pinned versions of all transitive dependencies for reproducible installs
 
 Runtime config (gitignored):
-- **`config.json`**: API keys, theme, chunk_size, max_workers, selected_services, ai_evaluator_service, agents, renpy_game_folder, renpy_processing_mode, cache_enabled, cache_max_size
+- **`config.json`**: API keys, theme, chunk_size, max_workers, selected_services, ai_evaluator_service, agents, renpy_game_folder, renpy_processing_mode, cache_enabled, cache_max_size, service_timeout, service_timeouts
 - **`cache.json`**: Translation cache (auto-generated, gitignored)
 - **`glossary.json`**: User term dictionary
 - **`history.json`**: Translation history with evaluation scores
@@ -282,9 +285,10 @@ Runtime config (gitignored):
 
 **Standard Service (requires API key)**:
 1. Create `app/services/newservice.py` implementing `TranslationService` (translate, is_configured, get_name)
-2. Register in `app/services/__init__.py`
-3. Add initialization in `Translator._initialize_services()`
-4. Create `tests/services/test_newservice.py` with mocked HTTP
+2. Accept `timeout: float = 1800.0` in constructor, use in HTTP/SDK calls
+3. Register in `app/services/__init__.py`
+4. Add initialization in `Translator._initialize_services()` with `timeout=self._get_service_timeout("newservice")`
+5. Create `tests/services/test_newservice.py` with mocked HTTP
 
 **Service with Free API Fallback** (like Google/Yandex):
 1. Implement `_translate_with_api_key()` and `_translate_free()` methods
@@ -295,13 +299,14 @@ Runtime config (gitignored):
 **Plugin Service (external package, no code changes)**:
 1. Create a package with a class implementing `TranslationService` (or `LLMTranslationService` for OpenAI-compatible AI APIs)
 2. Constructor must accept a single `Settings` argument
-3. Register entry point in the package's `pyproject.toml`:
+3. For HTTP/SDK plugins: read timeout from settings (`service_timeouts` per-service override → `service_timeout` global default) and pass to HTTP client / SDK constructor. See `examples/plugin-llm/` for the pattern.
+4. Register entry point in the package's `pyproject.toml`:
    ```toml
    [project.entry-points."polytranslate.services"]
    myservice = "my_package.module:MyServiceClass"
    ```
-4. Install the package — PolyTranslate discovers it automatically via `discover_plugins()`
-5. See working examples: `examples/plugin/` (minimal echo) and `examples/plugin-llm/` (Mistral AI)
+5. Install the package — PolyTranslate discovers it automatically via `discover_plugins()`
+6. See working examples: `examples/plugin/` (minimal echo) and `examples/plugin-llm/` (Mistral AI with timeout support)
 
 ### Add Voting Agent Type
 
@@ -325,7 +330,7 @@ Runtime config (gitignored):
 - **API Key Security**: Never commit `config.json`. Keys stored locally only.
 - **Logging**: `setup_logging()` called in `main.py` at startup. All modules use `logging.getLogger(__name__)`. Logs written to `polytranslate.log` via `RotatingFileHandler` (10 MB max, 3 backups).
 - **Translation Cache**: `TranslationCache` in `Translator` caches raw translations (before glossary). Key = text + source + target + service. LRU eviction, thread-safe, persisted to `cache.json`. Supports TMX 1.4b export/import for interoperability with CAT tools.
-- **Coverage Target**: 70% minimum (pyproject.toml), currently 93% (652 tests). GUI excluded.
+- **Coverage Target**: 70% minimum (pyproject.toml), currently 93% (666 tests). GUI excluded.
 - **Ruff Configuration**: Line length 100, ignores E501, uses modern Python features (UP rules).
 - **Pydantic**: Used for settings validation (`app/config/schema.py`). `extra="allow"` permits arbitrary keys from plugins/GUI.
 - **Click**: CLI framework (`app/cli.py`). Command aliases resolved in `run_cli()`. Tests use `click.testing.CliRunner`.
