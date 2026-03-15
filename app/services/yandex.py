@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import logging
-import time
 import uuid
 
-import requests
+import httpx
 
 from app.services.base import TranslationService
-from app.utils.rate_limiter import RateLimiter
+from app.utils.rate_limiter import RateLimiter, retry_with_backoff
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +41,8 @@ class YandexService(TranslationService):
             data["sourceLanguageCode"] = source_lang
 
         try:
-            response = requests.post(self.API_URL, headers=headers, json=data, timeout=30)
-        except requests.RequestException as e:
+            response = httpx.post(self.API_URL, headers=headers, json=data, timeout=30.0)
+        except httpx.RequestError as e:
             raise ValueError(f"Yandex API request failed: {e}") from e
 
         if response.status_code == 200:
@@ -68,51 +67,21 @@ class YandexService(TranslationService):
         }
         data = {"text": text}
 
-        max_retries = 3
-        base_delay = 2.0
+        response = retry_with_backoff(
+            self._rate_limiter,
+            lambda: httpx.post(
+                self.FREE_API_URL, params=params, data=data, headers=headers, timeout=30.0
+            ),
+            "Yandex free API",
+        )
 
-        for attempt in range(max_retries + 1):
-            self._rate_limiter.wait()
-            try:
-                response = requests.post(
-                    self.FREE_API_URL, params=params, data=data, headers=headers, timeout=30
-                )
-            except requests.RequestException as e:
-                if attempt == max_retries:
-                    raise ValueError(f"Yandex free API request failed: {e}") from e
-                logger.warning(
-                    "Yandex free API request error, retry %d/%d: %s",
-                    attempt + 1,
-                    max_retries,
-                    e,
-                )
-                time.sleep(base_delay * (2**attempt))
-                continue
-
-            if response.status_code == 200:
-                result = response.json()
-                if result.get("code") == 200:
-                    return "\n".join(result.get("text", []))
-                raise ValueError(f"Yandex free API error: {result.get('message', 'Unknown error')}")
-
-            if response.status_code == 429:
-                if attempt < max_retries:
-                    delay = base_delay * (2**attempt)
-                    logger.warning(
-                        "Yandex rate limited (429), retry %d/%d after %.1fs",
-                        attempt + 1,
-                        max_retries,
-                        delay,
-                    )
-                    time.sleep(delay)
-                    continue
-                raise ValueError(
-                    "Yandex free API rate limit exceeded. Please try again later or use an API key."
-                )
-
+        if response.status_code != 200:
             raise ValueError(f"Yandex free API HTTP error {response.status_code}: {response.text}")
 
-        raise ValueError("Yandex free API: Maximum retries exceeded")
+        result = response.json()
+        if result.get("code") == 200:
+            return "\n".join(result.get("text", []))
+        raise ValueError(f"Yandex free API error: {result.get('message', 'Unknown error')}")
 
     def is_configured(self) -> bool:
         return True

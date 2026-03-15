@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import logging
+from typing import Any
 
-from app.config.languages import get_language_name
-from app.services.base import TranslationService
-
-logger = logging.getLogger(__name__)
+from app.services.llm_base import LLMTranslationService
 
 try:
     from openai import OpenAI
@@ -18,7 +15,7 @@ except ImportError:
     OpenAI = None  # type: ignore[misc, assignment]
 
 
-class OpenAIService(TranslationService):
+class OpenAIService(LLMTranslationService):
     """OpenAI GPT translation service."""
 
     AVAILABLE_MODELS = [
@@ -32,49 +29,12 @@ class OpenAIService(TranslationService):
     ]
 
     def __init__(self, api_key: str = "", model: str = "gpt-4o-mini") -> None:
-        self.api_key = api_key
-        self.model = model
-        self._client: OpenAI | None = None
-
-    def _get_client(self) -> OpenAI:
-        if not OPENAI_AVAILABLE:
-            raise ValueError("OpenAI package is not installed")
-        if self._client is None:
-            self._client = OpenAI(api_key=self.api_key)
-        return self._client
-
-    def translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        if not self.is_configured():
-            raise ValueError("OpenAI API key not set")
-
-        source_name = (
-            get_language_name(source_lang) if source_lang != "auto" else "the source language"
+        super().__init__(
+            api_key=api_key, model=model, display_name="OpenAI", error_prefix="OpenAI API"
         )
-        target_name = get_language_name(target_lang)
 
-        prompt = f"Translate the following text from {source_name} to {target_name}. Be accurate and preserve meaning:\n\n{text}"
+    def _create_client(self) -> Any:
+        return OpenAI(api_key=self.api_key)
 
-        try:
-            client = self._get_client()
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a professional translator. Provide accurate, natural translations. Only output the translation, nothing else.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=2000,
-                temperature=0.3,
-            )
-            content = response.choices[0].message.content
-            return content.strip() if content else ""
-        except Exception as e:
-            raise ValueError(f"OpenAI API error: {e}") from e
-
-    def is_configured(self) -> bool:
-        return bool(self.api_key) and OPENAI_AVAILABLE
-
-    def get_name(self) -> str:
-        return f"OpenAI ({self.model})"
+    def _is_available(self) -> bool:
+        return OPENAI_AVAILABLE

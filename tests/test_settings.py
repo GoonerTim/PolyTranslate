@@ -14,7 +14,6 @@ class TestSettings:
     """Tests for Settings class."""
 
     def test_default_settings(self, temp_dir: Path) -> None:
-        """Test default settings initialization."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
@@ -23,7 +22,6 @@ class TestSettings:
         assert settings.get_max_workers() == 3
 
     def test_load_settings(self, temp_config: Path) -> None:
-        """Test loading settings from file."""
         settings = Settings(temp_config)
 
         assert settings.get_api_key("deepl") == "test_deepl_key"
@@ -31,7 +29,6 @@ class TestSettings:
         assert settings.get_theme() == "dark"
 
     def test_save_settings(self, temp_dir: Path) -> None:
-        """Test saving settings to file."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
@@ -45,7 +42,6 @@ class TestSettings:
         assert settings2.get_theme() == "light"
 
     def test_get_api_keys(self, temp_config: Path) -> None:
-        """Test getting all API keys."""
         settings = Settings(temp_config)
         keys = settings.get_api_keys()
 
@@ -54,7 +50,6 @@ class TestSettings:
         assert keys["deepl"] == "test_deepl_key"
 
     def test_set_api_key(self, temp_dir: Path) -> None:
-        """Test setting an API key."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
@@ -62,7 +57,6 @@ class TestSettings:
         assert settings.get_api_key("deepl") == "my_key"
 
     def test_theme_validation(self, temp_dir: Path) -> None:
-        """Test theme validation."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
@@ -76,7 +70,6 @@ class TestSettings:
             settings.set_theme("invalid")
 
     def test_chunk_size_validation(self, temp_dir: Path) -> None:
-        """Test chunk size validation."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
@@ -93,7 +86,6 @@ class TestSettings:
             settings.set_chunk_size(10000)  # Too large
 
     def test_max_workers_validation(self, temp_dir: Path) -> None:
-        """Test max workers validation."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
@@ -107,7 +99,6 @@ class TestSettings:
             settings.set_max_workers(20)
 
     def test_selected_services(self, temp_dir: Path) -> None:
-        """Test selected services management."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
@@ -115,7 +106,6 @@ class TestSettings:
         assert settings.get_selected_services() == ["deepl", "google"]
 
     def test_language_settings(self, temp_dir: Path) -> None:
-        """Test language settings."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
@@ -126,7 +116,6 @@ class TestSettings:
         assert settings.get_target_language() == "ru"
 
     def test_reset_to_defaults(self, temp_config: Path) -> None:
-        """Test resetting to defaults."""
         settings = Settings(temp_config)
 
         # Modify settings
@@ -140,7 +129,6 @@ class TestSettings:
         assert settings.get_chunk_size() == 1000
 
     def test_to_dict(self, temp_dir: Path) -> None:
-        """Test converting settings to dictionary."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
@@ -150,7 +138,6 @@ class TestSettings:
         assert "theme" in data
 
     def test_deep_merge(self, temp_dir: Path) -> None:
-        """Test that new settings are merged with defaults."""
         config_path = temp_dir / "config.json"
 
         # Create partial config
@@ -168,7 +155,6 @@ class TestSettings:
         assert settings.get_api_keys() is not None
 
     def test_load_invalid_json(self, temp_dir: Path) -> None:
-        """Test loading settings from invalid JSON."""
         config_path = temp_dir / "config.json"
         # Write invalid JSON
         with open(config_path, "w", encoding="utf-8") as f:
@@ -180,7 +166,6 @@ class TestSettings:
         assert settings.get_chunk_size() == 1000
 
     def test_save_error_handling(self, temp_dir: Path) -> None:
-        """Test save error handling with invalid path."""
         # Use path that cannot be written to
         config_path = temp_dir / "nonexistent" / "subdir" / "config.json"
         settings = Settings(config_path)
@@ -190,7 +175,6 @@ class TestSettings:
             settings.save()
 
     def test_set_method(self, temp_dir: Path) -> None:
-        """Test generic set method."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
@@ -198,7 +182,6 @@ class TestSettings:
         assert settings.get("custom_key") == "custom_value"
 
     def test_set_api_key_without_existing_keys(self, temp_dir: Path) -> None:
-        """Test setting API key when api_keys dict doesn't exist."""
         config_path = temp_dir / "config.json"
         # Create settings without api_keys
         with open(config_path, "w", encoding="utf-8") as f:
@@ -209,7 +192,6 @@ class TestSettings:
         assert settings.get_api_key("deepl") == "new_key"
 
     def test_window_geometry(self, temp_dir: Path) -> None:
-        """Test window geometry settings."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
@@ -221,28 +203,24 @@ class TestSettings:
         assert settings.get_window_geometry() == "1920x1080"
 
     def test_agents_default(self, temp_dir: Path) -> None:
-        """Test default agents setting is empty list."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
         assert settings.get("agents") == []
 
     def test_renpy_game_folder_default(self, temp_dir: Path) -> None:
-        """Test default renpy_game_folder setting."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
         assert settings.get("renpy_game_folder") == ""
 
     def test_renpy_processing_mode_default(self, temp_dir: Path) -> None:
-        """Test default renpy_processing_mode setting."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
         assert settings.get("renpy_processing_mode") == "scenes"
 
     def test_agents_save_and_load(self, temp_dir: Path) -> None:
-        """Test saving and loading agents configuration."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 
@@ -266,7 +244,6 @@ class TestSettings:
         assert loaded_agents[0]["weight"] == 1.5
 
     def test_default_models_updated(self, temp_dir: Path) -> None:
-        """Test that default models are current."""
         config_path = temp_dir / "config.json"
         settings = Settings(config_path)
 

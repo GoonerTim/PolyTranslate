@@ -3,8 +3,8 @@
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-457%20passed-brightgreen.svg)
-![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-641%20passed-brightgreen.svg)
+![Coverage](https://img.shields.io/badge/coverage-94%25-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 **Modern desktop translation application with beautiful UI, CLI mode, and support for multiple translation services**
@@ -19,33 +19,18 @@
 
 PolyTranslate is a feature-rich translation application with a **modern UI** and a **full CLI mode**, built with Python and CustomTkinter. Translate text and documents using multiple translation APIs simultaneously, compare results, and manage terminology with a built-in glossary.
 
-## 🆕 What's New in v2.6
+## 🆕 What's New in v3.0
 
-**📁 Batch Folder Translation**
-
-Translate all files in a directory at once — in GUI, CLI, or via the Python API!
-
-- **Point to a game folder** and translate every `.rpy` file automatically
-- **GUI**: "📁 Translate Folder" button — select folder, confirm, see per-file progress and results
-- **CLI**: `python main.py translate -d /path/to/game/ -t ru` with full batch support
-- **Output naming**: `script.rpy` → `script_ru.rpy` (language suffix preserved)
-- **Custom extensions**: `--extensions .rpy .txt` to translate any file types
-- **Output directory**: `--output-dir /output/` with subdirectory structure preserved
-- **Error resilience**: Failed files are skipped, the rest continue translating
-
-```bash
-# Translate all .rpy files in a game folder
-python main.py translate -d /path/to/game/ -t ru
-
-# Custom extensions and output directory
-python main.py translate -d /game/ -t ru --extensions .rpy .txt --output-dir /output/
-
-# Non-recursive, specific service, JSON report
-python main.py translate -d /game/ -t de --no-recursive --service google --format json
-```
+- **📤 Export Results**: Save translations as DOCX, PDF, or XLIFF 1.2 (`--export results.docx`)
+- **🔄 TMX Exchange**: Export/import translation cache in TMX 1.4b format for CAT tools
+- **🎬 SRT/ASS Subtitles**: Translate `.srt` and `.ass`/`.ssa` subtitle files with metadata preservation
+- **🔌 Plugin System**: Add translation services via entry points — no code changes needed
+- **🏗️ Modular Architecture**: GUI split into 10 focused mixin modules; services use shared LLM base class
 
 <details>
 <summary>Previous versions</summary>
+
+**v2.6 — Batch Folder Translation**: Translate all files in a directory at once (GUI, CLI, API). Custom extensions, output directories, error resilience.
 
 **v2.5 — CLI Mode**: Full command-line interface for scripting, automation, and terminal workflows.
 
@@ -62,13 +47,16 @@ python main.py translate -d /game/ -t de --no-recursive --service google --forma
 ### ✨ Key Features
 
 - **9 Translation Services**: DeepL (FREE), Google (FREE), Yandex (FREE), OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI
-- **9 File Formats**: TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, Markdown, Ren'Py scripts
+- **11 File Formats**: TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, Markdown, Ren'Py scripts, SRT subtitles, ASS/SSA subtitles
 - **🆓 FREE Services**: DeepL, Google, and Yandex work without API keys (with built-in rate limiting)
-- **📁 Batch Folder Translation**: Translate all files in a directory at once (v2.6)
-- **⌨️ CLI Mode**: Full command-line interface for scripting and automation (v2.5)
+- **📁 Batch Folder Translation**: Translate all files in a directory at once
+- **⌨️ CLI Mode**: Full command-line interface for scripting and automation
 - **🤖 AI Evaluation**: Rate translation quality with scores, explanations, and improvements
 - **🗳️ Multi-Agent Voting**: Multiple AI agents vote on translations with weighted consensus
 - **🎮 Ren'Py Context**: Game-aware translation with character/scene context extraction
+- **📤 Export**: Save results to DOCX, PDF, or XLIFF with original text formatting
+- **🔄 TMX Exchange**: Export/import translation cache in standard TMX format for CAT tools
+- **🔌 Plugin System**: Add custom translation services via Python entry points — no code changes needed
 - **Translation Cache**: Avoid redundant API calls — cached results reused automatically
 - **Parallel Processing**: Translate large texts in chunks with multiple workers
 - **🔀 Diff View**: VS Code-style line-by-line diff with per-line revert buttons
@@ -142,6 +130,14 @@ echo "Hello world" | python main.py translate -t ru
 python main.py translate -d /path/to/game/ -t ru
 python main.py translate -d /game/ -t ru --extensions .rpy .txt --output-dir /output/
 
+# Export results to DOCX/PDF/XLIFF
+python main.py translate -f doc.txt -t ru --export results.docx
+python main.py translate "Hello" -t de --export output.xliff
+
+# Translation cache TMX exchange (for CAT tools)
+python main.py cache export-tmx memory.tmx
+python main.py cache import-tmx memory.tmx
+
 # Detect language
 python main.py detect "Bonjour le monde"
 
@@ -161,6 +157,7 @@ python main.py config --set-key openai sk-your-key-here
 | `services` | `s` | List available translation services |
 | `languages` | `l` | List supported languages |
 | `detect` | `d` | Detect language of text |
+| `cache` | — | Export/import translation cache (TMX) |
 | `config` | `c` | Show or update configuration |
 
 ### AI Evaluation & Multi-Agent Voting
@@ -215,14 +212,20 @@ PolyTranslate/
 ├── app/
 │   ├── config/          # Configuration management
 │   ├── core/            # Core translation logic
-│   │   ├── batch_translator.py  # Batch folder translation (v2.6)
+│   │   ├── batch_translator.py  # Batch folder translation
 │   │   ├── renpy_context.py     # Ren'Py game context extractor
 │   │   └── ...
-│   ├── gui/             # Modern CustomTkinter UI (6 tabs)
+│   ├── gui/             # Modern CustomTkinter UI
+│   │   ├── main_window.py       # Main window orchestrator (~600 lines)
+│   │   ├── tabs/                # Tab rendering mixins (6 modules)
+│   │   ├── workflows/           # Translation workflow mixins (3 modules)
+│   │   ├── widgets/             # Reusable widgets (diff, file drop, progress)
+│   │   └── settings_dialog.py   # Settings dialog
 │   ├── services/        # Translation service implementations
-│   └── utils/           # Utilities (glossary, cache, rate limiter)
-│   ├── cli.py           # Command-line interface
-├── tests/               # Test suite (457 tests, 91% coverage)
+│   │   └── ...
+│   ├── utils/           # Utilities (glossary, cache, rate limiter)
+│   └── cli.py           # Command-line interface
+├── tests/               # Test suite (641 tests, 94% coverage)
 ├── main.py              # Entry point (GUI or CLI)
 └── pyproject.toml       # Project configuration
 ```
@@ -240,18 +243,51 @@ pyinstaller build.spec       # Build executable
 ### Architecture
 
 - **Translator**: Orchestrates translation workflow, manages services
-- **BatchTranslator**: Batch folder translation (v2.6)
+- **BatchTranslator**: Batch folder translation
 - **AIEvaluator**: AI-powered translation quality analysis
 - **AgentVoting**: Multi-agent voting with weighted consensus
-- **FileProcessor**: File format reading/writing (9 formats)
+- **FileProcessor**: File format reading/writing (11 formats incl. SRT/ASS subtitles)
 - **Settings**: Configuration with validation (types, ranges, model lists)
 - **Glossary / LanguageDetector**: Term replacement, language detection
+- **PluginLoader**: Discovers services via `polytranslate.services` entry points
+
+### 🔌 Writing a Plugin
+
+Create a Python package with a class that extends `TranslationService`:
+
+```python
+# my_service/plugin.py
+from app.services.base import TranslationService
+from app.config.settings import Settings
+
+class MyService(TranslationService):
+    def __init__(self, settings: Settings) -> None:
+        self.api_key = settings.get_api_keys().get("myservice", "")
+
+    def translate(self, text: str, source_lang: str, target_lang: str) -> str:
+        ...  # call your API
+
+    def is_configured(self) -> bool:
+        return bool(self.api_key)
+
+    def get_name(self) -> str:
+        return "My Service"
+```
+
+Register it in your package's `pyproject.toml`:
+
+```toml
+[project.entry-points."polytranslate.services"]
+myservice = "my_service.plugin:MyService"
+```
+
+Install the package (`pip install .`) and PolyTranslate will discover it automatically.
 
 ---
 
 ## 📊 Testing
 
-- **457 tests**, **91% coverage** (GUI excluded)
+- **641 tests**, **94% coverage** (GUI excluded)
 - Service mocking, AI evaluation, agent voting, batch translation, CLI, settings validation, file formats, integration tests
 
 ---

@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import logging
+from typing import Any
 
-from app.config.languages import get_language_name
-from app.services.base import TranslationService
-
-logger = logging.getLogger(__name__)
+from app.services.llm_base import LLMTranslationService
 
 try:
     from anthropic import Anthropic
@@ -18,7 +15,7 @@ except ImportError:
     Anthropic = None  # type: ignore[misc, assignment]
 
 
-class ClaudeService(TranslationService):
+class ClaudeService(LLMTranslationService):
     """Anthropic Claude API translation service."""
 
     AVAILABLE_MODELS = [
@@ -30,43 +27,23 @@ class ClaudeService(TranslationService):
     ]
 
     def __init__(self, api_key: str = "", model: str = "claude-sonnet-4-6") -> None:
-        self.api_key = api_key
-        self.model = model
-        self._client: Anthropic | None = None
-
-    def _get_client(self) -> Anthropic:
-        if not ANTHROPIC_AVAILABLE:
-            raise ValueError("Anthropic package is not installed")
-        if self._client is None:
-            self._client = Anthropic(api_key=self.api_key)
-        return self._client
-
-    def translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        if not self.is_configured():
-            raise ValueError("Anthropic API key not set")
-
-        source_name = (
-            get_language_name(source_lang) if source_lang != "auto" else "the source language"
+        super().__init__(
+            api_key=api_key, model=model, display_name="Claude", error_prefix="Claude API"
         )
-        target_name = get_language_name(target_lang)
 
-        prompt = f"Translate the following text from {source_name} to {target_name}. Be accurate and preserve meaning. Only output the translation, nothing else.\n\nText to translate:\n{text}"
+    def _create_client(self) -> Any:
+        return Anthropic(api_key=self.api_key)
 
-        try:
-            client = self._get_client()
-            message = client.messages.create(
-                model=self.model,
-                max_tokens=2000,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            if message.content and len(message.content) > 0:
-                return message.content[0].text.strip()
-            return ""
-        except Exception as e:
-            raise ValueError(f"Claude API error: {e}") from e
+    def _is_available(self) -> bool:
+        return ANTHROPIC_AVAILABLE
 
-    def is_configured(self) -> bool:
-        return bool(self.api_key) and ANTHROPIC_AVAILABLE
-
-    def get_name(self) -> str:
-        return f"Claude ({self.model})"
+    def _call_llm(self, prompt: str) -> str:
+        client = self._get_client()
+        message = client.messages.create(
+            model=self.model,
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        if message.content and len(message.content) > 0:
+            return message.content[0].text.strip()
+        return ""

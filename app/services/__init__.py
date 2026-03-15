@@ -8,6 +8,7 @@ from app.services.claude import ClaudeService
 from app.services.deepl import DeepLService
 from app.services.google import GoogleService
 from app.services.groq_service import GroqService
+from app.services.llm_base import LLMTranslationService
 from app.services.localai import LocalAIService
 from app.services.openai_service import OpenAIService
 from app.services.openrouter import OpenRouterService
@@ -21,6 +22,7 @@ __all__ = [
     "AIEvaluator",
     "EvaluationResult",
     "TranslationService",
+    "LLMTranslationService",
     "DeepLService",
     "YandexService",
     "GoogleService",

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+
+from app.config.languages import LANGUAGES, get_language_name
 
 try:
     from langdetect import detect, detect_langs
@@ -14,54 +15,13 @@ except ImportError:
     LANGDETECT_AVAILABLE = False
     LangDetectException = Exception  # type: ignore[misc, assignment]
 
-if TYPE_CHECKING:
-    pass
-
 logger = logging.getLogger(__name__)
 
 
 class LanguageDetector:
     """Detects the language of text content."""
 
-    SUPPORTED_LANGUAGES = {
-        "en": "English",
-        "ru": "Russian",
-        "de": "German",
-        "fr": "French",
-        "es": "Spanish",
-        "it": "Italian",
-        "nl": "Dutch",
-        "pl": "Polish",
-        "pt": "Portuguese",
-        "zh-cn": "Chinese (Simplified)",
-        "zh-tw": "Chinese (Traditional)",
-        "ja": "Japanese",
-        "ko": "Korean",
-        "ar": "Arabic",
-        "tr": "Turkish",
-        "uk": "Ukrainian",
-        "cs": "Czech",
-        "sv": "Swedish",
-        "da": "Danish",
-        "fi": "Finnish",
-        "no": "Norwegian",
-        "hu": "Hungarian",
-        "el": "Greek",
-        "he": "Hebrew",
-        "th": "Thai",
-        "vi": "Vietnamese",
-        "id": "Indonesian",
-        "ms": "Malay",
-        "ro": "Romanian",
-        "bg": "Bulgarian",
-        "sk": "Slovak",
-        "sl": "Slovenian",
-        "hr": "Croatian",
-        "sr": "Serbian",
-        "lt": "Lithuanian",
-        "lv": "Latvian",
-        "et": "Estonian",
-    }
+    SUPPORTED_LANGUAGES = LANGUAGES
 
     @classmethod
     def detect(cls, text: str) -> str | None:
@@ -100,7 +60,7 @@ class LanguageDetector:
 
     @classmethod
     def get_language_name(cls, code: str) -> str:
-        return cls.SUPPORTED_LANGUAGES.get(code.lower(), code)
+        return get_language_name(code)
 
     @classmethod
     def is_available(cls) -> bool:

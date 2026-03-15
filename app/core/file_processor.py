@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import logging
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -39,6 +38,9 @@ class FileProcessor:
         "md",
         "markdown",
         "rpy",
+        "srt",
+        "ass",
+        "ssa",
     }
 
     @staticmethod
@@ -189,6 +191,9 @@ class FileProcessor:
         except Exception as e:
             raise ValueError(f"Markdown reading error: {e}") from e
 
+    # --- Delegated to SubtitleProcessor / RenpyProcessor ---
+    # These static methods delegate to extracted classes for backwards compatibility.
+
     @staticmethod
     def read_rpy(
         file_content: bytes,
@@ -196,64 +201,11 @@ class FileProcessor:
         translate_strings: bool = True,
         preserve_code: bool = True,
     ) -> str:
-        try:
-            encoding = FileProcessor.detect_encoding(file_content)
-            rpy_content = file_content.decode(encoding)
+        from app.core.renpy_processor import RenpyProcessor
 
-            patterns = {
-                "dialogue": r'^\s*[^#\n]*["\'](.*?)["\']',
-                "old_dialogue": r'^\s*[^#\n]*["\']{3}(.*?)["\']{3}',
-                "string_translations": r'^\s*_\(["\'](.*?)["\']\)',
-                "character_dialogue": r'^\s*(\w+)\s*["\'](.*?)["\']',
-                "menu_options": r'^\s*["\'](.*?)["\']:',
-            }
-
-            extracted_text: list[str] = []
-            lines = rpy_content.split("\n")
-
-            for line_num, line in enumerate(lines, 1):
-                line = line.rstrip()
-
-                if line.strip().startswith("#"):
-                    continue
-
-                if translate_dialogue:
-                    dialogue_matches = re.findall(patterns["dialogue"], line)
-                    for match in dialogue_matches:
-                        if match.strip() and len(match.strip()) > 1:
-                            extracted_text.append(f"DIALOGUE_LINE_{line_num}: {match}")
-
-                    old_dialogue_matches = re.findall(patterns["old_dialogue"], line, re.DOTALL)
-                    for match in old_dialogue_matches:
-                        if match.strip():
-                            extracted_text.append(f"DIALOGUE_LINE_{line_num}: {match}")
-
-                if translate_strings:
-                    string_matches = re.findall(patterns["string_translations"], line)
-                    for match in string_matches:
-                        if match.strip():
-                            extracted_text.append(f"TRANSLATABLE_STRING_{line_num}: {match}")
-
-                if translate_dialogue:
-                    char_matches = re.findall(patterns["character_dialogue"], line)
-                    for char, dialogue in char_matches:
-                        if dialogue.strip():
-                            extracted_text.append(
-                                f"CHARACTER_DIALOGUE_{line_num}_{char}: {dialogue}"
-                            )
-
-                    menu_matches = re.findall(patterns["menu_options"], line)
-                    for match in menu_matches:
-                        if match.strip():
-                            extracted_text.append(f"MENU_OPTION_{line_num}: {match}")
-
-            if not extracted_text:
-                return rpy_content
-
-            return "\n".join(extracted_text)
-
-        except Exception as e:
-            raise ValueError(f"RPY reading error: {e}") from e
+        return RenpyProcessor.read_rpy(
+            file_content, translate_dialogue, translate_strings, preserve_code
+        )
 
     @staticmethod
     def reconstruct_rpy(
@@ -262,76 +214,60 @@ class FileProcessor:
         translate_dialogue: bool = True,
         translate_strings: bool = True,
     ) -> str:
-        try:
-            lines = original_content.split("\n")
-            translated_lines: list[str] = []
+        from app.core.renpy_processor import RenpyProcessor
 
-            for line_num, line in enumerate(lines, 1):
-                current_line = line
-
-                if translate_dialogue:
-                    dialogue_pattern = r'^(\s*[^#\n]*)(["\'])(.*?)(["\'])'
-
-                    def replace_dialogue(match: re.Match[str], num: int = line_num) -> str:
-                        prefix = match.group(1)
-                        start_quote = match.group(2)
-                        content = match.group(3)
-                        end_quote = match.group(4)
-
-                        key = f"DIALOGUE_LINE_{num}: {content}"
-                        if key in translations:
-                            return f"{prefix}{start_quote}{translations[key]}{end_quote}"
-                        return match.group(0)
-
-                    current_line = re.sub(dialogue_pattern, replace_dialogue, current_line)
-
-                if translate_strings:
-                    string_pattern = r'^(\s*_\()(["\'])(.*?)(["\']\))'
-
-                    def replace_string(match: re.Match[str], num: int = line_num) -> str:
-                        prefix = match.group(1)
-                        start_quote = match.group(2)
-                        content = match.group(3)
-                        end_quote = match.group(4)
-
-                        key = f"TRANSLATABLE_STRING_{num}: {content}"
-                        if key in translations:
-                            return f"{prefix}{start_quote}{translations[key]}{end_quote})"
-                        return match.group(0)
-
-                    current_line = re.sub(string_pattern, replace_string, current_line)
-
-                translated_lines.append(current_line)
-
-            return "\n".join(translated_lines)
-
-        except Exception as e:
-            raise ValueError(f"RPY reconstruction error: {e}") from e
+        return RenpyProcessor.reconstruct_rpy(
+            original_content, translations, translate_dialogue, translate_strings
+        )
 
     @staticmethod
     def split_rpy_by_scenes(content: str) -> list[tuple[str, str]]:
-        label_pattern = re.compile(r"^\s*label\s+(\w+)\s*:", re.MULTILINE)
-        matches = list(label_pattern.finditer(content))
+        from app.core.renpy_processor import RenpyProcessor
 
-        if not matches:
-            return [("_full", content)]
+        return RenpyProcessor.split_rpy_by_scenes(content)
 
-        scenes: list[tuple[str, str]] = []
+    @staticmethod
+    def read_srt(file_content: bytes) -> str:
+        from app.core.subtitle_processor import SubtitleProcessor
 
-        # Content before first label (if any)
-        if matches[0].start() > 0:
-            preamble = content[: matches[0].start()].strip()
-            if preamble:
-                scenes.append(("_preamble", preamble))
+        return SubtitleProcessor.read_srt(file_content)
 
-        for i, match in enumerate(matches):
-            label_name = match.group(1)
-            start = match.start()
-            end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
-            scene_content = content[start:end].rstrip()
-            scenes.append((label_name, scene_content))
+    @staticmethod
+    def reconstruct_srt(original_content: str, translations: dict[str, str]) -> str:
+        from app.core.subtitle_processor import SubtitleProcessor
 
-        return scenes
+        return SubtitleProcessor.reconstruct_srt(original_content, translations)
+
+    @staticmethod
+    def read_ass(file_content: bytes) -> str:
+        from app.core.subtitle_processor import SubtitleProcessor
+
+        return SubtitleProcessor.read_ass(file_content)
+
+    @staticmethod
+    def reconstruct_ass(original_content: str, translations: dict[str, str]) -> str:
+        from app.core.subtitle_processor import SubtitleProcessor
+
+        return SubtitleProcessor.reconstruct_ass(original_content, translations)
+
+    _PROCESSORS: dict[str, str] = {
+        "txt": "read_txt",
+        "pdf": "read_pdf",
+        "docx": "read_docx",
+        "doc": "read_docx",
+        "pptx": "read_pptx",
+        "xlsx": "read_xlsx",
+        "xls": "read_xlsx",
+        "csv": "read_csv",
+        "html": "read_html",
+        "htm": "read_html",
+        "md": "read_md",
+        "markdown": "read_md",
+        "rpy": "read_rpy",
+        "srt": "read_srt",
+        "ass": "read_ass",
+        "ssa": "read_ass",
+    }
 
     @classmethod
     def process_file(cls, file_path: str | Path, **kwargs: Any) -> str:
@@ -348,26 +284,11 @@ class FileProcessor:
 
         content = path.read_bytes()
 
-        processors: dict[str, Any] = {
-            "txt": cls.read_txt,
-            "pdf": cls.read_pdf,
-            "docx": cls.read_docx,
-            "doc": cls.read_docx,
-            "pptx": cls.read_pptx,
-            "xlsx": cls.read_xlsx,
-            "xls": cls.read_xlsx,
-            "csv": cls.read_csv,
-            "html": cls.read_html,
-            "htm": cls.read_html,
-            "md": cls.read_md,
-            "markdown": cls.read_md,
-            "rpy": cls.read_rpy,
-        }
-
-        processor = processors.get(extension)
-        if processor is None:
+        method_name = cls._PROCESSORS.get(extension)
+        if method_name is None:
             return cls.read_txt(content)
 
+        processor = getattr(cls, method_name)
         if extension == "rpy":
             return processor(content, **kwargs)
         return processor(content)
@@ -376,23 +297,8 @@ class FileProcessor:
     def process_bytes(cls, file_content: bytes, extension: str, **kwargs: Any) -> str:
         extension = extension.lower().lstrip(".")
 
-        processors: dict[str, Any] = {
-            "txt": cls.read_txt,
-            "pdf": cls.read_pdf,
-            "docx": cls.read_docx,
-            "doc": cls.read_docx,
-            "pptx": cls.read_pptx,
-            "xlsx": cls.read_xlsx,
-            "xls": cls.read_xlsx,
-            "csv": cls.read_csv,
-            "html": cls.read_html,
-            "htm": cls.read_html,
-            "md": cls.read_md,
-            "markdown": cls.read_md,
-            "rpy": cls.read_rpy,
-        }
-
-        processor = processors.get(extension, cls.read_txt)
+        method_name = cls._PROCESSORS.get(extension, "read_txt")
+        processor = getattr(cls, method_name)
         if extension == "rpy":
             return processor(file_content, **kwargs)
         return processor(file_content)

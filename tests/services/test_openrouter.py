@@ -13,28 +13,23 @@ class TestOpenRouterService:
     """Tests for OpenRouterService class."""
 
     def test_not_configured_without_key(self) -> None:
-        """Test that service is not configured without API key."""
         service = OpenRouterService(api_key="")
         assert service.is_configured() is False
 
     def test_configured_with_key(self) -> None:
-        """Test that service is configured with API key."""
         service = OpenRouterService(api_key="test_key")
         assert service.api_key == "test_key"
 
     def test_get_name(self) -> None:
-        """Test getting service name."""
         service = OpenRouterService(api_key="test_key", model="anthropic/claude-3-opus")
         assert "anthropic/claude-3-opus" in service.get_name()
         assert "OpenRouter" in service.get_name()
 
     def test_base_url(self) -> None:
-        """Test that correct base URL is used."""
         service = OpenRouterService(api_key="test_key")
         assert service.BASE_URL == "https://openrouter.ai/api/v1"
 
     def test_translate_without_key(self) -> None:
-        """Test translation attempt without API key."""
         service = OpenRouterService(api_key="")
         with pytest.raises(ValueError) as exc_info:
             service.translate("Hello", "en", "ru")
@@ -43,7 +38,6 @@ class TestOpenRouterService:
     @patch("app.services.openrouter.OPENAI_AVAILABLE", True)
     @patch("app.services.openrouter.OpenAI")
     def test_translate_success(self, mock_openai_class: MagicMock) -> None:
-        """Test successful translation."""
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
 
@@ -61,7 +55,6 @@ class TestOpenRouterService:
     @patch("app.services.openrouter.OPENAI_AVAILABLE", True)
     @patch("app.services.openrouter.OpenAI")
     def test_site_headers(self, mock_openai_class: MagicMock) -> None:
-        """Test that site headers are set correctly."""
         service = OpenRouterService(
             api_key="test_key",
             site_url="https://example.com",

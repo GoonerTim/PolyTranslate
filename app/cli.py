@@ -63,6 +63,12 @@ def create_parser() -> argparse.ArgumentParser:
     tr.add_argument(
         "--format", choices=["text", "json"], default="text", help="Output format (default: text)"
     )
+    tr.add_argument(
+        "--export",
+        type=str,
+        default=None,
+        help="Export results to DOCX/PDF/XLIFF (e.g. --export results.docx)",
+    )
     tr.add_argument("--config", type=str, default=None, help="Path to config.json")
 
     # --- services ---
@@ -78,6 +84,16 @@ def create_parser() -> argparse.ArgumentParser:
     det = subparsers.add_parser("detect", aliases=["d"], help="Detect language of text")
     det.add_argument("input", nargs="?", help="Text to detect (or use --file)")
     det.add_argument("-f", "--file", type=str, help="Input file path")
+
+    # --- cache ---
+    ca = subparsers.add_parser("cache", help="Manage translation cache (export/import TMX)")
+    ca_sub = ca.add_subparsers(dest="cache_action", help="Cache actions")
+    ca_export = ca_sub.add_parser("export-tmx", help="Export cache to TMX file")
+    ca_export.add_argument("output", type=str, help="Output TMX file path")
+    ca_export.add_argument("--config", type=str, default=None, help="Path to config.json")
+    ca_import = ca_sub.add_parser("import-tmx", help="Import TMX file into cache")
+    ca_import.add_argument("input", type=str, help="Input TMX file path")
+    ca_import.add_argument("--config", type=str, default=None, help="Path to config.json")
 
     # --- config ---
     cfg = subparsers.add_parser("config", aliases=["c"], help="Show or update configuration")
@@ -113,6 +129,37 @@ def _get_text(args: argparse.Namespace) -> str:
     sys.exit(1)
 
 
+def _resolve_params(args: argparse.Namespace, settings: Settings) -> tuple[str, str, int, int]:
+    source = args.source or settings.get_source_language()
+    target = args.target or settings.get_target_language()
+    chunk_size = args.chunk_size or settings.get_chunk_size()
+    max_workers = args.max_workers or settings.get_max_workers()
+    return source, target, chunk_size, max_workers
+
+
+def _resolve_services(
+    args: argparse.Namespace, translator: Translator, settings: Settings
+) -> list[str]:
+    available = translator.get_available_services()
+    if not available:
+        print("Error: no translation services configured", file=sys.stderr)
+        sys.exit(1)
+
+    if args.all_services:
+        return available
+    if args.services:
+        invalid = [s for s in args.services if s not in available]
+        if invalid:
+            print(f"Error: unavailable services: {', '.join(invalid)}", file=sys.stderr)
+            print(f"Available: {', '.join(available)}", file=sys.stderr)
+            sys.exit(1)
+        return args.services
+
+    configured = settings.get_selected_services()
+    services = [s for s in configured if s in available]
+    return services if services else available[:1]
+
+
 def _progress_callback(completed: int, total: int) -> None:
     pct = int(completed / total * 100) if total else 100
     bar_len = 30
@@ -131,30 +178,8 @@ def cmd_translate(args: argparse.Namespace) -> None:
         return _cmd_translate_directory(args, settings, translator)
 
     text = _get_text(args)
-    source = args.source or settings.get_source_language()
-    target = args.target or settings.get_target_language()
-    chunk_size = args.chunk_size or settings.get_chunk_size()
-    max_workers = args.max_workers or settings.get_max_workers()
-
-    available = translator.get_available_services()
-    if not available:
-        print("Error: no translation services configured", file=sys.stderr)
-        sys.exit(1)
-
-    if args.all_services:
-        services = available
-    elif args.services:
-        invalid = [s for s in args.services if s not in available]
-        if invalid:
-            print(f"Error: unavailable services: {', '.join(invalid)}", file=sys.stderr)
-            print(f"Available: {', '.join(available)}", file=sys.stderr)
-            sys.exit(1)
-        services = args.services
-    else:
-        configured = settings.get_selected_services()
-        services = [s for s in configured if s in available]
-        if not services:
-            services = available[:1]
+    source, target, chunk_size, max_workers = _resolve_params(args, settings)
+    services = _resolve_services(args, translator, settings)
 
     if source == "auto":
         detected = translator.detect_language(text)
@@ -189,6 +214,20 @@ def cmd_translate(args: argparse.Namespace) -> None:
     else:
         print(output)
 
+    if getattr(args, "export", None):
+        from app.core.exporter import TranslationExporter
+
+        file_name = Path(args.file).name if getattr(args, "file", None) else ""
+        export_path = TranslationExporter.export(
+            original_text=text,
+            translations=results,
+            source_lang=source,
+            target_lang=target,
+            output_path=args.export,
+            file_name=file_name,
+        )
+        print(f"Exported to {export_path}", file=sys.stderr)
+
     if is_file:
         print("Done.", file=sys.stderr)
 
@@ -203,29 +242,8 @@ def _cmd_translate_directory(
         print(f"Error: directory not found: {args.directory}", file=sys.stderr)
         sys.exit(1)
 
-    source = args.source or settings.get_source_language()
-    target = args.target or settings.get_target_language()
-    chunk_size = args.chunk_size or settings.get_chunk_size()
-    max_workers = args.max_workers or settings.get_max_workers()
-
-    available = translator.get_available_services()
-    if not available:
-        print("Error: no translation services configured", file=sys.stderr)
-        sys.exit(1)
-
-    if args.all_services:
-        services = available
-    elif args.services:
-        invalid = [s for s in args.services if s not in available]
-        if invalid:
-            print(f"Error: unavailable services: {', '.join(invalid)}", file=sys.stderr)
-            sys.exit(1)
-        services = args.services
-    else:
-        configured = settings.get_selected_services()
-        services = [s for s in configured if s in available]
-        if not services:
-            services = available[:1]
+    source, target, chunk_size, max_workers = _resolve_params(args, settings)
+    services = _resolve_services(args, translator, settings)
 
     extensions = {f".{e.lstrip('.')}" for e in args.extensions} if args.extensions else None
     output_dir = Path(args.output_dir) if getattr(args, "output_dir", None) else None
@@ -345,6 +363,42 @@ def cmd_detect(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_cache(args: argparse.Namespace) -> None:
+    settings = _load_settings(getattr(args, "config", None))
+
+    if args.cache_action == "export-tmx":
+        from app.utils.cache import TranslationCache
+
+        cache = TranslationCache(
+            cache_path=settings.get("cache_path", "cache.json"),
+            enabled=True,
+        )
+        if len(cache) == 0:
+            print("Cache is empty, nothing to export.", file=sys.stderr)
+            sys.exit(1)
+        output = cache.export_tmx(args.output)
+        print(f"Exported {len(cache)} entries to {output}", file=sys.stderr)
+
+    elif args.cache_action == "import-tmx":
+        from app.utils.cache import TranslationCache
+
+        input_path = Path(args.input)
+        if not input_path.exists():
+            print(f"Error: file not found: {args.input}", file=sys.stderr)
+            sys.exit(1)
+        cache = TranslationCache(
+            cache_path=settings.get("cache_path", "cache.json"),
+            enabled=True,
+        )
+        count = cache.import_tmx(input_path)
+        cache.save()
+        print(f"Imported {count} entries from {input_path}", file=sys.stderr)
+
+    else:
+        print("Usage: polytranslate cache {export-tmx,import-tmx}", file=sys.stderr)
+        sys.exit(1)
+
+
 def cmd_config(args: argparse.Namespace) -> None:
     settings = _load_settings(getattr(args, "config", None))
 
@@ -398,6 +452,7 @@ def run_cli(argv: list[str] | None = None) -> None:
         "l": cmd_languages,
         "detect": cmd_detect,
         "d": cmd_detect,
+        "cache": cmd_cache,
         "config": cmd_config,
         "c": cmd_config,
     }

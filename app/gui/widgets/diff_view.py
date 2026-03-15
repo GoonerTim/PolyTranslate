@@ -56,15 +56,21 @@ class DiffView(ctk.CTkFrame):
         legend.pack(side="right", padx=5)
 
         ctk.CTkLabel(
-            legend, text="  removed", font=ctk.CTkFont(size=11),
+            legend,
+            text="  removed",
+            font=ctk.CTkFont(size=11),
             text_color=self.COLOR_REMOVED_FG,
         ).pack(side="left", padx=(0, 8))
         ctk.CTkLabel(
-            legend, text="  added", font=ctk.CTkFont(size=11),
+            legend,
+            text="  added",
+            font=ctk.CTkFont(size=11),
             text_color=self.COLOR_ADDED_FG,
         ).pack(side="left", padx=(0, 8))
         ctk.CTkLabel(
-            legend, text="↩ revert line", font=ctk.CTkFont(size=11),
+            legend,
+            text="↩ revert line",
+            font=ctk.CTkFont(size=11),
             text_color=("gray50", "gray60"),
         ).pack(side="left")
 
@@ -84,7 +90,9 @@ class DiffView(ctk.CTkFrame):
         self._translated_lines = translated.splitlines(keepends=True)
 
         if service_name:
-            label = f"{service_icon} {service_name.upper()}" if service_icon else service_name.upper()
+            label = (
+                f"{service_icon} {service_name.upper()}" if service_icon else service_name.upper()
+            )
             self._service_label.configure(text=label)
 
         self._render()
@@ -118,7 +126,10 @@ class DiffView(ctk.CTkFrame):
             elif tag == "insert":
                 for k in range(j2 - j1):
                     self._add_line(
-                        row, j1 + k + 1, self._translated_lines[j1 + k], "insert",
+                        row,
+                        j1 + k + 1,
+                        self._translated_lines[j1 + k],
+                        "insert",
                         revert_idx=j1 + k,
                     )
                     added += 1
@@ -135,16 +146,19 @@ class DiffView(ctk.CTkFrame):
                         row += 1
                     if k < trans_count:
                         self._add_line(
-                            row, j1 + k + 1, self._translated_lines[j1 + k], "insert",
+                            row,
+                            j1 + k + 1,
+                            self._translated_lines[j1 + k],
+                            "insert",
                             revert_idx=j1 + k,
-                            revert_original=self._original_lines[i1 + k] if k < orig_count else None,
+                            revert_original=self._original_lines[i1 + k]
+                            if k < orig_count
+                            else None,
                         )
                         added += 1
                         row += 1
 
-        self._stats_label.configure(
-            text=f"+{added}  -{removed}  ={unchanged}"
-        )
+        self._stats_label.configure(text=f"+{added}  -{removed}  ={unchanged}")
 
     def _add_line(
         self,

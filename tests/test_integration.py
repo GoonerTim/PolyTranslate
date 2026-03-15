@@ -14,9 +14,8 @@ from app.utils.glossary import Glossary
 class TestEndToEndTranslation:
     """End-to-end integration tests."""
 
-    @patch("app.services.chatgpt_proxy.requests.post")
+    @patch("app.services.chatgpt_proxy.httpx.post")
     def test_translate_text_file_end_to_end(self, mock_post: MagicMock, temp_dir: Path) -> None:
-        """Test complete flow: file → process → translate → save."""
         # Setup mock response
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -41,9 +40,8 @@ class TestEndToEndTranslation:
         output_file.write_text(result, encoding="utf-8")
         assert output_file.exists()
 
-    @patch("app.services.chatgpt_proxy.requests.post")
+    @patch("app.services.chatgpt_proxy.httpx.post")
     def test_parallel_translation_workflow(self, mock_post: MagicMock, temp_dir: Path) -> None:
-        """Test parallel translation workflow."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"response": {"translated_text": "Переведено"}}
@@ -62,11 +60,10 @@ class TestEndToEndTranslation:
         assert "chatgpt_proxy" in results
         assert isinstance(results["chatgpt_proxy"], str)
 
-    @patch("app.services.chatgpt_proxy.requests.post")
+    @patch("app.services.chatgpt_proxy.httpx.post")
     def test_translation_with_glossary_integration(
         self, mock_post: MagicMock, temp_dir: Path
     ) -> None:
-        """Test translation with glossary applied."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"response": {"translated_text": "API is great"}}
@@ -91,7 +88,6 @@ class TestEndToEndTranslation:
             pass
 
     def test_settings_persistence(self, temp_dir: Path) -> None:
-        """Test that settings persist across sessions."""
         config_path = temp_dir / "config.json"
 
         # Create and save settings
@@ -108,7 +104,6 @@ class TestEndToEndTranslation:
         assert settings2.get_chunk_size() == 1500
 
     def test_glossary_persistence(self, temp_dir: Path) -> None:
-        """Test that glossary persists across sessions."""
         glossary_path = temp_dir / "glossary.json"
 
         # Create and save glossary
@@ -122,9 +117,8 @@ class TestEndToEndTranslation:
         assert glossary2.get_entry("hello") == "привет"
         assert glossary2.get_entry("world") == "мир"
 
-    @patch("app.services.chatgpt_proxy.requests.post")
+    @patch("app.services.chatgpt_proxy.httpx.post")
     def test_multi_service_comparison(self, mock_post: MagicMock) -> None:
-        """Test comparing translations from multiple services."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"response": {"translated_text": "Результат перевода"}}
@@ -143,7 +137,6 @@ class TestEndToEndTranslation:
         assert "chatgpt_proxy" in results
 
     def test_language_detection_integration(self) -> None:
-        """Test language detection in workflow."""
         translator = Translator()
 
         # Detect English
@@ -156,9 +149,8 @@ class TestEndToEndTranslation:
         if result_ru is not None:
             assert result_ru == "ru"
 
-    @patch("app.services.chatgpt_proxy.requests.post")
+    @patch("app.services.chatgpt_proxy.httpx.post")
     def test_error_handling_in_parallel_translation(self, mock_post: MagicMock) -> None:
-        """Test error handling in parallel translation."""
         # First call succeeds, second fails
         mock_response_success = MagicMock()
         mock_response_success.status_code = 200
@@ -180,7 +172,6 @@ class TestEndToEndTranslation:
         assert "chatgpt_proxy" in results
 
     def test_chunk_reassembly(self) -> None:
-        """Test that split chunks are reassembled correctly."""
         translator = Translator()
 
         # Create text that will be split
@@ -198,9 +189,8 @@ class TestEndToEndTranslation:
         for sentence in sentences:
             assert sentence in reassembled or sentence in original_text
 
-    @patch("app.services.chatgpt_proxy.requests.post")
+    @patch("app.services.chatgpt_proxy.httpx.post")
     def test_progress_tracking(self, mock_post: MagicMock) -> None:
-        """Test progress tracking during translation."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"response": {"translated_text": "Translated"}}
@@ -233,7 +223,6 @@ class TestEndToEndTranslation:
             assert final_completed == final_total
 
     def test_empty_text_handling(self) -> None:
-        """Test handling of empty text."""
         translator = Translator()
 
         # Split empty text
@@ -245,7 +234,6 @@ class TestEndToEndTranslation:
         assert result is None
 
     def test_special_characters_handling(self, temp_dir: Path) -> None:
-        """Test handling of special characters in text."""
         # Create file with special characters
         input_file = temp_dir / "special.txt"
         special_text = "Special: @#$%^&*() \n\t émojis: 😀🎉"
@@ -256,7 +244,6 @@ class TestEndToEndTranslation:
         assert "@#$%^&*()" in result
 
     def test_large_text_processing(self) -> None:
-        """Test processing of large text."""
         translator = Translator()
 
         # Create large text (1000 sentences)
@@ -266,9 +253,8 @@ class TestEndToEndTranslation:
         chunks = translator.split_text(large_text, chunk_size=500)
         assert len(chunks) > 5
 
-    @patch("app.services.chatgpt_proxy.requests.post")
+    @patch("app.services.chatgpt_proxy.httpx.post")
     def test_concurrent_service_calls(self, mock_post: MagicMock) -> None:
-        """Test concurrent calls to translation service."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"response": {"translated_text": "Результат"}}

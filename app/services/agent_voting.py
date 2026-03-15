@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
 from app.services.base import TranslationService
+from app.utils.json_helpers import parse_json_response
 
 logger = logging.getLogger(__name__)
 
@@ -60,25 +61,77 @@ class AgentVoting:
         if not self.agents:
             raise ValueError("No agents configured for voting")
 
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            return self._vote_sync(original_text, translations, source_lang, target_lang, is_renpy)
+
+        return asyncio.run(
+            self._vote_async(
+                original_text, translations, source_lang, target_lang, is_renpy, max_workers
+            )
+        )
+
+    async def _vote_async(
+        self,
+        original_text: str,
+        translations: dict[str, str],
+        source_lang: str,
+        target_lang: str,
+        is_renpy: bool,
+        max_workers: int,
+    ) -> VotingResult:
+        prompt = self._create_voting_prompt(
+            original_text, translations, source_lang, target_lang, is_renpy
+        )
+
+        semaphore = asyncio.Semaphore(max_workers)
+        votes: list[AgentVote] = []
+
+        async def query_agent(agent: AgentConfig) -> AgentVote | None:
+            async with semaphore:
+                try:
+                    vote = await asyncio.to_thread(self._query_agent, agent, prompt)
+                    return vote
+                except Exception:
+                    logger.warning("Agent %s failed, skipping", agent.name)
+                    return None
+
+        tasks = [query_agent(agent) for agent in self.agents]
+        results = await asyncio.gather(*tasks)
+
+        for result in results:
+            if result is not None:
+                votes.append(result)
+
+        if not votes:
+            raise RuntimeError("All agents failed to respond")
+
+        return self._compute_consensus(votes)
+
+    def _vote_sync(
+        self,
+        original_text: str,
+        translations: dict[str, str],
+        source_lang: str,
+        target_lang: str,
+        is_renpy: bool,
+    ) -> VotingResult:
+        """Synchronous fallback when already inside an event loop."""
         prompt = self._create_voting_prompt(
             original_text, translations, source_lang, target_lang, is_renpy
         )
 
         votes: list[AgentVote] = []
-        workers = min(max_workers, len(self.agents))
-
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            futures = {
-                executor.submit(self._query_agent, agent, prompt): agent for agent in self.agents
-            }
-
-            for future in as_completed(futures, timeout=120):
-                agent = futures[future]
-                try:
-                    vote = future.result(timeout=60)
-                    votes.append(vote)
-                except Exception:
-                    logger.warning("Agent %s failed, skipping", agent.name)
+        for agent in self.agents:
+            try:
+                vote = self._query_agent(agent, prompt)
+                votes.append(vote)
+            except Exception:
+                logger.warning("Agent %s failed, skipping", agent.name)
 
         if not votes:
             raise RuntimeError("All agents failed to respond")
@@ -161,18 +214,9 @@ Respond in JSON format ONLY:
         return prompt
 
     def _parse_agent_response(self, agent_name: str, response: str) -> AgentVote:
-        response = response.strip()
-        if response.startswith("```json"):
-            response = response[7:]
-        if response.startswith("```"):
-            response = response[3:]
-        if response.endswith("```"):
-            response = response[:-3]
-        response = response.strip()
-
         try:
-            data = json.loads(response)
-        except json.JSONDecodeError:
+            data = parse_json_response(response)
+        except (json.JSONDecodeError, ValueError):
             logger.warning("Agent %s returned invalid JSON, using fallback", agent_name)
             return AgentVote(agent_name=agent_name)
 

@@ -5,91 +5,90 @@ All notable changes to PolyTranslate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-03-14
+
+### Added
+
+#### Export Results (DOCX / PDF / XLIFF)
+- **Translation export**: Save original + translations to DOCX, PDF, or XLIFF 1.2 via `TranslationExporter.export()` — auto-detects format from extension
+- GUI "Export" button and CLI `--export` flag (`python main.py translate "text" -t ru --export results.docx`)
+- New dependency: `reportlab>=4.0.0` (for PDF export)
+
+#### TMX Cache Export/Import
+- **TMX export/import**: Exchange translation memory with CAT tools in standard TMX 1.4b format
+- CLI: `cache export-tmx memory.tmx` / `cache import-tmx memory.tmx`
+- Round-trip safe: export → import preserves text, languages, service, and translation
+
+#### SRT/ASS Subtitle Support
+- **SRT/ASS subtitles**: Parse and reconstruct `.srt`, `.ass`/`.ssa` files with indexed markers, preserving timecodes, override tags, and metadata
+- Supported in both `process_file()` and `process_bytes()` pipelines
+
+#### Plugin System (Entry Points)
+- **Service plugins**: Add new translation services via `polytranslate.services` entry point — no code changes needed
+- `app/core/plugin_loader.py`: Scans entry points, validates `TranslationService` instances, skips broken plugins gracefully
+
+### Changed
+
+#### GUI Architecture Refactoring (Breaking)
+- **Modular GUI**: Refactored monolithic `main_window.py` (2218 lines) into 10 focused modules (~200 lines each)
+  - `MainWindow` now uses **mixin classes** for clean separation of concerns
+  - Extracted 6 **tab mixins** into `app/gui/tabs/`:
+    - `ResultsTabMixin` — results rendering, save/copy actions
+    - `ComparisonTabMixin` — side-by-side comparison grid
+    - `DiffTabMixin` — VS Code-style diff view
+    - `EvaluationTabMixin` — AI evaluation report, agent votes, improved translation
+    - `HistoryTabMixin` — history cards, delete/clear
+    - `GlossaryTabMixin` — glossary editor, add/delete/save entries
+  - Extracted 3 **workflow mixins** into `app/gui/workflows/`:
+    - `TranslationWorkflowMixin` — translation start/run/complete/error
+    - `EvaluationWorkflowMixin` — single evaluation and multi-agent voting
+    - `BatchWorkflowMixin` — batch folder translation with progress
+  - `MainWindow` reduced from 2218 to **592 lines** (orchestrator + UI setup only)
+  - Shared constants (`SERVICE_ICONS`) moved to `ResultsTabMixin` as class attribute
+  - Empty state creation consolidated into `_create_empty_placeholder()` helper
+  - Controls panel split into `_create_language_card()`, `_create_services_card()`, `_create_action_buttons()`
+  - Menu bar simplified with data-driven button creation loop
+
+### Technical
+- New directories: `app/gui/tabs/`, `app/gui/workflows/`
+- New files: 6 tab modules + 3 workflow modules + 2 `__init__.py`
+- New test files: `tests/test_exporter.py` — 23 tests (DOCX content, PDF validity, XLIFF structure, edge cases), `tests/test_cache_tmx.py` — 17 tests (export structure, import parsing, round-trip, Unicode)
+- All 534 tests passing, 90% coverage
+
+---
+
 ## [2.6.0] - 2026-03-12
 
 ### Added
 
 #### Batch Folder Translation
 - **Batch folder translation**: Translate all files in a directory at once — GUI, CLI, and core API
-  - Point to a game folder and translate every `.rpy` file automatically
-  - Output naming: `script.rpy` → `script_ru.rpy` (language suffix added before extension)
-  - Ren'Py reconstruction: `.rpy` files keep their dialogue structure (labels, characters, code)
-  - Error resilience: failed files are skipped, remaining files continue translating
-  - Progress tracking: per-file progress callback with file index, name, and completion status
-
-- **New module** `app/core/batch_translator.py`:
-  - `BatchTranslator`: Orchestrates file discovery and per-file translation
-  - `find_files()`: Discovers files by extensions (default `.rpy`), recursive or non-recursive
-  - `translate_file()`: Translates single file, saves with language suffix
-  - `translate_folder()`: Translates all matching files with progress callback
-  - `BatchFileResult`: Dataclass (source_path, output_path, success, error, services_used)
-  - `BatchProgress`: Dataclass (current_file_index, total_files, current_file_name, file_completed)
-  - Output directory support with relative subdirectory structure preservation
-
-- **CLI batch mode** (`-d` / `--directory` flag):
-  - `python main.py translate -d /path/to/game/ -t ru` — translate all `.rpy` files
-  - `--output-dir`: Save translated files to a separate directory
-  - `--extensions`: Filter by file extensions (e.g., `--extensions .rpy .txt`)
-  - `--no-recursive`: Only process top-level files (skip subdirectories)
-  - `--service`: Choose which service's output to save (when using multiple services)
-  - `--format json`: JSON report with source/output paths and success status
-  - Per-file progress display: `[3/15] chapter1.rpy ✓ Done`
-
-- **GUI "📁 Translate Folder" button**:
-  - New button in menu bar (next to "📂 Open")
-  - Folder picker → confirmation dialog showing file count, extensions, and services
-  - Threaded execution with per-file progress bar: `[3/15] script.rpy ✓`
-  - Results summary view with success/failure cards for each file
-  - Auto-fallback: tries `.rpy` first, then all supported extensions
+- `app/core/batch_translator.py`: File discovery, per-file translation with language suffix naming, progress callbacks
+- CLI batch mode: `-d`/`--directory`, `--output-dir`, `--extensions`, `--no-recursive`, `--service`, `--format json`
+- GUI "Translate Folder" button with folder picker, threaded execution, and results summary
 
 #### Translation Cache
-- **Translation cache**: `app/utils/cache.py` — avoids redundant API calls for previously translated text
-  - Cache key: text + source language + target language + service name (SHA-256 hashed)
-  - In-memory dict with JSON persistence (`cache.json`)
-  - LRU eviction when cache exceeds `cache_max_size` (default 10,000 entries)
-  - Thread-safe via `threading.Lock` (works with parallel translation)
-  - Caches raw translations before glossary application
-  - Configurable via `config.json`: `cache_enabled`, `cache_max_size`
+- **Translation cache**: `app/utils/cache.py` — SHA-256 keyed, LRU eviction, thread-safe, JSON-persisted
+- Configurable via `config.json`: `cache_enabled`, `cache_max_size` (default 10,000)
 
 #### Rate Limiter
-- **Unified rate limiter**: `app/utils/rate_limiter.py` — thread-safe throttling for all free translation APIs
-  - Reusable `RateLimiter` class with configurable `min_interval` between requests
-  - Thread-safe via `threading.Lock` (works with `ThreadPoolExecutor` parallel translation)
-  - Class-level instance per service: DeepL (1.0s), Google (0.5s), Yandex (0.5s)
-  - `wait()` blocks until enough time has passed since the last request
-  - `reset()` method for clearing rate limit state
-  - Replaces DeepL's manual lock+timestamp implementation; adds rate limiting to Google and Yandex
+- **Unified rate limiter**: `app/utils/rate_limiter.py` — thread-safe throttling per service (DeepL 1.0s, Google/Yandex 0.5s)
 
 #### Structured Logging
-- **Logging system**: `app/utils/logging.py` with `setup_logging()` — file handler (`polytranslate.log`) + optional console handler
-- **All modules instrumented**: `logging.getLogger(__name__)` in 16 modules (core, services, config, utils)
-- **Key events logged**: service fallback (paid→free), API retries, rate limiting, translation errors, batch progress, config/glossary load errors
-- **Called at startup** in `main.py` — logs written to `polytranslate.log` in format `2026-03-13 12:00:00 [INFO] app.core.translator: ...`
+- **Logging system**: `app/utils/logging.py` — file handler (`polytranslate.log`) + optional console, all 16 modules instrumented
 
 #### Diff View
-- **VS Code-style diff tab**: New "🔀 Diff" tab showing line-by-line diff between original and translated text
-  - Color-coded lines: red (`-`) for removed, green (`+`) for added, neutral for unchanged
-  - **Per-line revert** (`↩` button): click to restore original line, diff re-renders instantly
-  - Stats header: `+N -N =N` showing added/removed/unchanged line counts
-  - Legend bar with color key
-  - Single service: diff shown directly; multiple services: nested tabs with one diff per service
-  - Revert updates `_translations` dict — changes persist across tabs
-- **New widget** `app/gui/widgets/diff_view.py`: Reusable `DiffView` frame built on `difflib.SequenceMatcher`
+- **VS Code-style diff tab**: Line-by-line diff with color-coded +/- lines, per-line revert buttons, stats header
+- `app/gui/widgets/diff_view.py`: Reusable `DiffView` frame built on `difflib.SequenceMatcher`
 
 #### Settings Validation & Model Updates
-- **Settings validation**: `Settings.set()` now validates all known keys via declarative `VALIDATORS` table
-  - Type checking: rejects wrong types (e.g. string for `cache_enabled`)
-  - Choice validation: `theme`, `deepl_plan`, `renpy_processing_mode`
-  - Range validation: `chunk_size` [100..5000], `max_workers` [1..10], `cache_max_size` [100..100000]
-  - Model validation: `openai_model`, `claude_model`, `groq_model` checked against `AVAILABLE_MODELS`
-  - Unknown keys pass through without validation (extensible)
-- **Model lists updated** to current versions:
-  - OpenAI: gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini, o3-mini, gpt-4-turbo (default: `gpt-4o-mini`)
-  - Claude: claude-sonnet-4-6, claude-haiku-4-5, claude-3-7-sonnet, claude-3-5-sonnet, claude-3-5-haiku (default: `claude-sonnet-4-6`)
-  - Groq: llama-3.3-70b-versatile, llama-3.1-8b-instant, gemma2-9b-it, mixtral-8x7b (default: `llama-3.3-70b-versatile`)
-  - OpenRouter default: `openai/gpt-4o-mini`
-- **Canonical model lists**: `Settings.OPENAI_MODELS`, `Settings.CLAUDE_MODELS`, `Settings.GROQ_MODELS` — single source of truth used by services, settings, and GUI dialog
-- Removed deprecated models: gpt-3.5-turbo, claude-2.x, claude-instant, llama2, gemma-7b
+- **Settings validation**: Declarative `VALIDATORS` table — type checking, choice/range/model validation
+- Model lists updated: OpenAI (gpt-4.1 family), Claude (claude-sonnet-4-6), Groq (llama-3.3-70b), OpenRouter (gpt-4o-mini)
+- Canonical model lists as single source of truth; removed deprecated models
+
+#### httpx + asyncio Migration
+- Replaced `requests` with `httpx`, `ThreadPoolExecutor` with `asyncio.gather()` + `asyncio.to_thread()`
+- `respx` for HTTP mocking in tests; graceful sync fallback when inside running event loop
 
 ### Improved
 - **CLI file progress**: Single file translation now shows file name, language pair, and services before progress bar, with "Done." on completion
@@ -106,7 +105,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extended `tests/test_settings.py` with 21 validation tests (types, ranges, models, edge cases)
 - Updated exports in `app/core/__init__.py`
 - New test file: `tests/test_diff_view.py` (10 tests — diff logic, revert, edge cases)
-- All tests passing (457 tests, 91% coverage)
+- Dependencies: `requests` → `httpx`, `responses` → `respx`, removed `types-requests`
+- All tests passing (464 tests, 90% coverage)
 - Ruff lint and format clean
 
 ---
@@ -414,17 +414,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned Features
 - Cloud sync for glossary and settings
-- Translation memory (TMX support)
 - API usage statistics and cost tracking
-- Custom translation engine plugins
-- Export to various formats (XLIFF, TMX, etc.)
-- Automated translation caching
-- Integration with CAT tools
 
 ---
 
 ## Version History
 
+- **3.0.0** (2026-03-14) - Export results (DOCX/PDF/XLIFF), TMX cache exchange, plugin system, SRT/ASS subtitles, GUI refactoring
 - **2.6.0** (2026-03-12) - Batch Folder Translation (GUI + CLI + API)
 - **2.5.0** (2026-03-12) - Command-Line Interface (CLI) mode
 - **2.4.0** (2026-03-12) - Multi-Agent Voting System + Ren'Py Context Awareness

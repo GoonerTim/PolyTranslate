@@ -153,48 +153,9 @@ CHATGPT_PROXY_LANG_MAP: dict[str, str] = {
     "tt": "tt",
 }
 
-LANGUAGE_NAMES: dict[str, str] = {
-    "en": "English",
-    "ru": "Russian",
-    "de": "German",
-    "fr": "French",
-    "es": "Spanish",
-    "it": "Italian",
-    "nl": "Dutch",
-    "pl": "Polish",
-    "pt": "Portuguese",
-    "zh": "Chinese",
-    "ja": "Japanese",
-    "ko": "Korean",
-    "ar": "Arabic",
-    "tr": "Turkish",
-    "uk": "Ukrainian",
-    "cs": "Czech",
-    "sv": "Swedish",
-    "da": "Danish",
-    "fi": "Finnish",
-    "no": "Norwegian",
-    "hu": "Hungarian",
-    "el": "Greek",
-    "he": "Hebrew",
-    "th": "Thai",
-    "vi": "Vietnamese",
-    "id": "Indonesian",
-    "ms": "Malay",
-    "ro": "Romanian",
-    "bg": "Bulgarian",
-    "sk": "Slovak",
-    "sl": "Slovenian",
-    "hr": "Croatian",
-    "sr": "Serbian",
-    "lt": "Lithuanian",
-    "lv": "Latvian",
-    "et": "Estonian",
-}
-
 
 def get_language_name(code: str) -> str:
-    return LANGUAGE_NAMES.get(code.lower(), code)
+    return LANGUAGES.get(code.lower(), code)
 
 
 def get_deepl_code(code: str) -> str | None:

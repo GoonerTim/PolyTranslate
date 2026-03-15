@@ -1,6 +1,6 @@
 [project]
 name = "polytranslate"
-version = "1.0.0"
+version = "3.0.0"
 requires-python = ">=3.10"
 description = "Powerful desktop translation application with support for multiple translation services and file formats"
 authors = [
@@ -67,6 +67,10 @@ addopts = [
     "--cov-report=html:coverage_html",
     "--cov-fail-under=70"
 ]
+
+# Example: register a plugin service via entry points
+# [project.entry-points."polytranslate.services"]
+# mymemory = "my_plugin_package:MyMemoryService"
 
 [tool.coverage.run]
 source = ["app"]

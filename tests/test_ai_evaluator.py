@@ -32,7 +32,6 @@ class TestEvaluationResult:
     """Tests for EvaluationResult dataclass."""
 
     def test_evaluation_result_creation(self):
-        """Test creating an evaluation result."""
         result = EvaluationResult(
             service="deepl",
             score=8.5,
@@ -48,7 +47,6 @@ class TestEvaluationResult:
         assert result.weaknesses == []
 
     def test_evaluation_result_with_strengths_weaknesses(self):
-        """Test creating an evaluation result with strengths and weaknesses."""
         result = EvaluationResult(
             service="google",
             score=7.2,
@@ -66,14 +64,12 @@ class TestAIEvaluator:
     """Tests for AIEvaluator class."""
 
     def test_init(self):
-        """Test AIEvaluator initialization."""
         mock_service = MockLLMService()
         evaluator = AIEvaluator(mock_service)
 
         assert evaluator.llm_service == mock_service
 
     def test_evaluate_translations_empty_dict(self):
-        """Test evaluation with empty translations dict."""
         mock_service = MockLLMService()
         evaluator = AIEvaluator(mock_service)
 
@@ -86,7 +82,6 @@ class TestAIEvaluator:
             )
 
     def test_evaluate_translations_service_not_configured(self):
-        """Test evaluation with unconfigured service."""
         mock_service = MockLLMService(configured=False)
         evaluator = AIEvaluator(mock_service)
 
@@ -99,7 +94,6 @@ class TestAIEvaluator:
             )
 
     def test_evaluate_translations_success(self):
-        """Test successful evaluation."""
         eval_response = json.dumps(
             {
                 "evaluations": [
@@ -155,7 +149,6 @@ class TestAIEvaluator:
         assert results["ai_improved"] == improved_translation
 
     def test_evaluate_translations_json_with_code_blocks(self):
-        """Test parsing JSON response with markdown code blocks."""
         eval_response = """```json
 {
   "evaluations": [
@@ -190,7 +183,6 @@ class TestAIEvaluator:
         assert results["deepl"].score == 9.0
 
     def test_evaluate_translations_score_clamping(self):
-        """Test that scores are clamped to 0-10 range."""
         eval_response = json.dumps(
             {
                 "evaluations": [
@@ -225,7 +217,6 @@ class TestAIEvaluator:
         assert results["yandex"].score == 0.0
 
     def test_evaluate_translations_evaluation_error(self):
-        """Test handling of evaluation API error."""
         mock_service = MockLLMService(response="")
         evaluator = AIEvaluator(mock_service)
 
@@ -238,7 +229,6 @@ class TestAIEvaluator:
             )
 
     def test_evaluate_translations_improvement_error(self):
-        """Test handling of improvement generation error."""
         eval_response = json.dumps(
             {
                 "evaluations": [
@@ -273,7 +263,6 @@ class TestAIEvaluator:
         assert "ai_improved" not in results
 
     def test_create_evaluation_prompt(self):
-        """Test evaluation prompt generation."""
         mock_service = MockLLMService()
         evaluator = AIEvaluator(mock_service)
 
@@ -292,7 +281,6 @@ class TestAIEvaluator:
         assert "JSON" in prompt
 
     def test_create_improvement_prompt_no_renpy(self):
-        """Test improvement prompt generation without Ren'Py."""
         mock_service = MockLLMService()
         evaluator = AIEvaluator(mock_service)
 
@@ -309,7 +297,6 @@ class TestAIEvaluator:
         assert "CRITICAL" not in prompt
 
     def test_create_improvement_prompt_with_renpy(self):
-        """Test improvement prompt generation with Ren'Py."""
         mock_service = MockLLMService()
         evaluator = AIEvaluator(mock_service)
 
@@ -325,7 +312,6 @@ class TestAIEvaluator:
         assert "Ren'Py" in prompt
 
     def test_parse_evaluation_response_invalid_json(self):
-        """Test parsing invalid JSON response."""
         mock_service = MockLLMService()
         evaluator = AIEvaluator(mock_service)
 
@@ -333,7 +319,6 @@ class TestAIEvaluator:
             evaluator._parse_evaluation_response("invalid json", "2024-01-01")
 
     def test_parse_evaluation_response_missing_fields(self):
-        """Test parsing response with missing fields."""
         mock_service = MockLLMService()
         evaluator = AIEvaluator(mock_service)
 
@@ -353,7 +338,6 @@ class TestAIEvaluator:
         assert results["deepl"].explanation == ""
 
     def test_preserve_renpy_structure(self):
-        """Test Ren'Py structure preservation."""
         mock_service = MockLLMService()
         evaluator = AIEvaluator(mock_service)
 
@@ -373,7 +357,6 @@ class TestAIEvaluator:
         assert result.startswith("label start:")
 
     def test_preserve_renpy_structure_non_renpy(self):
-        """Test that non-Ren'Py text is returned unchanged."""
         mock_service = MockLLMService()
         evaluator = AIEvaluator(mock_service)
 
@@ -385,7 +368,6 @@ class TestAIEvaluator:
         assert result == improved
 
     def test_is_renpy_dialogue(self):
-        """Test Ren'Py dialogue detection."""
         mock_service = MockLLMService()
         evaluator = AIEvaluator(mock_service)
 
@@ -398,7 +380,6 @@ class TestAIEvaluator:
         assert not evaluator._is_renpy_dialogue("No dialogue here")
 
     def test_integration_with_mock_service(self):
-        """Test integration with mocked service."""
         # Use MockLLMService instead of real OpenAI to avoid API calls
         eval_response = json.dumps(
             {

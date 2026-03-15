@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import uuid
 
-import requests
+import httpx
 
 from app.config.languages import CHATGPT_PROXY_LANG_MAP
 from app.services.base import TranslationService
@@ -52,8 +52,8 @@ class ChatGPTProxyService(TranslationService):
         }
 
         try:
-            response = requests.post(self.API_URL, json=data, headers=headers, timeout=30)
-        except requests.RequestException as e:
+            response = httpx.post(self.API_URL, json=data, headers=headers, timeout=30.0)
+        except httpx.RequestError as e:
             raise ValueError(f"ChatGPT Proxy request failed: {e}") from e
 
         if response.status_code == 200:

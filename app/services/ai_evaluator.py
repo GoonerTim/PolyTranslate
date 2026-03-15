@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from app.services.base import TranslationService
+from app.utils.json_helpers import parse_json_response
 
 logger = logging.getLogger(__name__)
 
@@ -148,16 +149,7 @@ Output only the improved translation, no explanations."""
         self, response: str, timestamp: str
     ) -> dict[str, EvaluationResult]:
         try:
-            response = response.strip()
-            if response.startswith("```json"):
-                response = response[7:]
-            if response.startswith("```"):
-                response = response[3:]
-            if response.endswith("```"):
-                response = response[:-3]
-            response = response.strip()
-
-            data = json.loads(response)
+            data = parse_json_response(response)
 
             evaluations = {}
             for eval_item in data.get("evaluations", []):

@@ -138,13 +138,9 @@ class Settings:
                     f"Must be one of: {', '.join(str(c) for c in rules['choices'])}"
                 )
             if "min" in rules and value < rules["min"]:
-                raise ValueError(
-                    f"Value for '{key}' must be >= {rules['min']}, got {value}"
-                )
+                raise ValueError(f"Value for '{key}' must be >= {rules['min']}, got {value}")
             if "max" in rules and value > rules["max"]:
-                raise ValueError(
-                    f"Value for '{key}' must be <= {rules['max']}, got {value}"
-                )
+                raise ValueError(f"Value for '{key}' must be <= {rules['max']}, got {value}")
 
         model_lists = {
             "openai_model": self.OPENAI_MODELS,
@@ -156,9 +152,7 @@ class Settings:
                 raise ValueError(f"Model for '{key}' must be a non-empty string")
             if value not in model_lists[key]:
                 allowed = ", ".join(model_lists[key])
-                raise ValueError(
-                    f"Unknown model for '{key}': {value!r}. Available: {allowed}"
-                )
+                raise ValueError(f"Unknown model for '{key}': {value!r}. Available: {allowed}")
 
     def set(self, key: str, value: Any) -> None:
         self.validate(key, value)

@@ -6,11 +6,11 @@ import logging
 import re
 import time
 
-import requests
+import httpx
 
 from app.config.languages import DEEPL_LANG_MAP
 from app.services.base import TranslationService
-from app.utils.rate_limiter import RateLimiter
+from app.utils.rate_limiter import RateLimiter, retry_with_backoff
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +58,8 @@ class DeepLService(TranslationService):
             params["source_lang"] = source_lang_deepl
 
         try:
-            response = requests.post(url, data=params, timeout=30)
-        except requests.RequestException as e:
+            response = httpx.post(url, data=params, timeout=30.0)
+        except httpx.RequestError as e:
             raise ValueError(f"DeepL API request failed: {e}") from e
 
         if response.status_code == 200:
@@ -137,69 +137,39 @@ class DeepLService(TranslationService):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         }
 
-        max_retries = 3
-        base_delay = 2.0
+        response = retry_with_backoff(
+            self._rate_limiter,
+            lambda: httpx.post(
+                self.UNOFFICIAL_API_URL, json=payload, headers=headers, timeout=30.0
+            ),
+            "DeepL free API",
+        )
 
-        for attempt in range(max_retries + 1):
-            self._rate_limiter.wait()
-
-            try:
-                response = requests.post(
-                    self.UNOFFICIAL_API_URL, json=payload, headers=headers, timeout=30
-                )
-            except requests.RequestException as e:
-                if attempt == max_retries:
-                    raise ValueError(f"DeepL free API request failed: {e}") from e
-                logger.warning(
-                    "DeepL free API request error, retry %d/%d: %s", attempt + 1, max_retries, e
-                )
-                time.sleep(base_delay * (2**attempt))
-                continue
-
-            if response.status_code == 200:
-                try:
-                    result = response.json()
-                    if result.get("result") and result["result"].get("translations"):
-                        translated_sentences = []
-                        for translation in result["result"]["translations"]:
-                            if translation.get("beams") and len(translation["beams"]) > 0:
-                                translated_text = translation["beams"][0].get(
-                                    "postprocessed_sentence", ""
-                                )
-                                translated_sentences.append(translated_text)
-                            else:
-                                translated_sentences.append("")
-
-                        output = []
-                        trans_iter = iter(translated_sentences)
-                        for seg in segments:
-                            if seg["type"] == 0:
-                                output.append(str(seg["text"]))
-                            else:
-                                output.append(next(trans_iter, str(seg["text"])))
-                        return "".join(output)
-                    raise ValueError("Unexpected response format from DeepL free API")
-                except (KeyError, IndexError, TypeError) as e:
-                    raise ValueError(f"Failed to parse DeepL free API response: {e}") from e
-
-            if response.status_code == 429:
-                if attempt < max_retries:
-                    delay = base_delay * (2**attempt)
-                    logger.warning(
-                        "DeepL rate limited (429), retry %d/%d after %.1fs",
-                        attempt + 1,
-                        max_retries,
-                        delay,
-                    )
-                    time.sleep(delay)
-                    continue
-                raise ValueError(
-                    "DeepL free API rate limit exceeded. Please try again later or use an API key."
-                )
-
+        if response.status_code != 200:
             raise ValueError(f"DeepL free API HTTP error {response.status_code}: {response.text}")
 
-        raise ValueError("DeepL free API: Maximum retries exceeded")
+        try:
+            result = response.json()
+            if result.get("result") and result["result"].get("translations"):
+                translated_sentences = []
+                for translation in result["result"]["translations"]:
+                    if translation.get("beams") and len(translation["beams"]) > 0:
+                        translated_text = translation["beams"][0].get("postprocessed_sentence", "")
+                        translated_sentences.append(translated_text)
+                    else:
+                        translated_sentences.append("")
+
+                output = []
+                trans_iter = iter(translated_sentences)
+                for seg in segments:
+                    if seg["type"] == 0:
+                        output.append(str(seg["text"]))
+                    else:
+                        output.append(next(trans_iter, str(seg["text"])))
+                return "".join(output)
+            raise ValueError("Unexpected response format from DeepL free API")
+        except (KeyError, IndexError, TypeError) as e:
+            raise ValueError(f"Failed to parse DeepL free API response: {e}") from e
 
     def is_configured(self) -> bool:
         return True

@@ -6,6 +6,8 @@ import hashlib
 import json
 import logging
 import threading
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -121,3 +123,103 @@ class TranslationCache:
     def __contains__(self, key: tuple[str, str, str, str]) -> bool:
         text, source_lang, target_lang, service = key
         return self.get(text, source_lang, target_lang, service) is not None
+
+    def export_tmx(self, output_path: str | Path) -> Path:
+        """Export cache entries to a TMX 1.4b file."""
+        output_path = Path(output_path)
+
+        root = ET.Element("tmx", version="1.4")
+        header = ET.SubElement(
+            root,
+            "header",
+            creationtool="PolyTranslate",
+            creationtoolversion="3.0",
+            datatype="plaintext",
+            segtype="sentence",
+            adminlang="en",
+            srclang="*all*",
+            creationdate=datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
+        )
+        header.text = ""
+        body = ET.SubElement(root, "body")
+
+        with self._lock:
+            entries = list(self._entries.values())
+
+        for entry in entries:
+            tu = ET.SubElement(body, "tu")
+            tu.set("tuid", f"{entry['source_lang']}_{entry['target_lang']}_{entry['service']}")
+            prop = ET.SubElement(tu, "prop", type="x-service")
+            prop.text = entry["service"]
+
+            src_tuv = ET.SubElement(tu, "tuv")
+            src_tuv.set("{http://www.w3.org/XML/1998/namespace}lang", entry["source_lang"])
+            src_seg = ET.SubElement(src_tuv, "seg")
+            src_seg.text = entry["text"]
+
+            tgt_tuv = ET.SubElement(tu, "tuv")
+            tgt_tuv.set("{http://www.w3.org/XML/1998/namespace}lang", entry["target_lang"])
+            tgt_seg = ET.SubElement(tgt_tuv, "seg")
+            tgt_seg.text = entry["translation"]
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        tree = ET.ElementTree(root)
+        ET.indent(tree, space="  ")
+        tree.write(str(output_path), encoding="unicode", xml_declaration=True)
+
+        logger.info("Exported %d cache entries to TMX: %s", len(entries), output_path)
+        return output_path
+
+    def import_tmx(self, input_path: str | Path) -> int:
+        """Import translation units from a TMX file into the cache. Returns count imported."""
+        input_path = Path(input_path)
+        tree = ET.parse(str(input_path))  # noqa: S314
+        root = tree.getroot()
+
+        body = root.find("body")
+        if body is None:
+            return 0
+
+        count = 0
+        for tu in body.findall("tu"):
+            service = ""
+            prop = tu.find("prop[@type='x-service']")
+            if prop is not None and prop.text:
+                service = prop.text
+
+            tuvs = tu.findall("tuv")
+            if len(tuvs) < 2:
+                continue
+
+            src_tuv = tuvs[0]
+            tgt_tuv = tuvs[1]
+
+            src_lang = (
+                src_tuv.get("{http://www.w3.org/XML/1998/namespace}lang")
+                or src_tuv.get("lang")
+                or ""
+            )
+            tgt_lang = (
+                tgt_tuv.get("{http://www.w3.org/XML/1998/namespace}lang")
+                or tgt_tuv.get("lang")
+                or ""
+            )
+
+            src_seg = src_tuv.find("seg")
+            tgt_seg = tgt_tuv.find("seg")
+            if src_seg is None or tgt_seg is None:
+                continue
+
+            text = src_seg.text or ""
+            translation = tgt_seg.text or ""
+            if not text or not translation:
+                continue
+
+            if not service:
+                service = "imported"
+
+            self.put(text, src_lang, tgt_lang, service, translation)
+            count += 1
+
+        logger.info("Imported %d entries from TMX: %s", count, input_path)
+        return count

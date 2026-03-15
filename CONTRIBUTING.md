@@ -40,7 +40,7 @@ What you expected to happen.
 **Environment**
 - OS: [e.g., Windows 11]
 - Python version: [e.g., 3.11.0]
-- PolyTranslate version: [e.g., 1.0.0]
+- PolyTranslate version: [e.g., 3.0.0]
 
 **Additional context**
 Any other information.
@@ -374,16 +374,14 @@ def sample_translator(temp_dir: Path) -> Translator:
 Always mock external API calls:
 
 ```python
-import responses
+import httpx
+import respx
 
-@responses.activate
+@respx.mock
 def test_api_call():
     """Test API interaction."""
-    responses.add(
-        responses.POST,
-        "https://api.example.com/translate",
-        json={"result": "translated"},
-        status=200
+    respx.post("https://api.example.com/translate").mock(
+        return_value=httpx.Response(200, json={"result": "translated"})
     )
 
     service = TranslationService()

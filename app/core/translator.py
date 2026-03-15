@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import concurrent.futures
+import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -10,6 +10,7 @@ from nltk.tokenize import sent_tokenize
 
 from app.config.settings import Settings
 from app.core.language_detector import LanguageDetector
+from app.core.plugin_loader import discover_plugins
 from app.services import (
     ChatGPTProxyService,
     ClaudeService,
@@ -121,6 +122,16 @@ class Translator:
                 model=self.settings.get("localai_model", "default"),
             )
 
+        # Load plugin services
+        for plugin in discover_plugins(self.settings):
+            if plugin.service_id in self.services:
+                logger.warning(
+                    "Plugin '%s' conflicts with built-in service — skipped",
+                    plugin.service_id,
+                )
+                continue
+            self.services[plugin.service_id] = plugin.service
+
     def reload_services(self) -> None:
         self.services.clear()
         self._initialize_services()
@@ -201,47 +212,108 @@ class Translator:
         max_workers: int = 3,
         progress_callback: Callable[[int, int], None] | None = None,
     ) -> dict[str, str]:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            # Already inside an event loop (e.g. Jupyter) — run sync fallback
+            return self._translate_parallel_sync(
+                text, source_lang, target_lang, services, chunk_size, progress_callback
+            )
+
+        return asyncio.run(
+            self._translate_parallel_async(
+                text, source_lang, target_lang, services, chunk_size, max_workers, progress_callback
+            )
+        )
+
+    async def _translate_parallel_async(
+        self,
+        text: str,
+        source_lang: str,
+        target_lang: str,
+        services: list[str],
+        chunk_size: int,
+        max_workers: int,
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> dict[str, str]:
         chunks = self.split_text(text, chunk_size)
         total_tasks = len(chunks) * len(services)
         completed = 0
         logger.info(
-            "Starting parallel translation: %d chunks, %d services, %d workers",
+            "Starting async parallel translation: %d chunks, %d services",
             len(chunks),
             len(services),
-            max_workers,
         )
 
-        all_results: dict[str, list[str]] = {service: [] for service in services}
+        semaphore = asyncio.Semaphore(max_workers)
+        chunk_results: dict[str, dict[int, str]] = {service: {} for service in services}
 
-        def translate_task(chunk: str, chunk_idx: int, service_name: str) -> tuple[int, str, str]:
-            try:
-                result = self.translate(chunk, source_lang, target_lang, service_name)
-            except Exception as e:
-                logger.error("Chunk %d failed for %s: %s", chunk_idx, service_name, e)
-                result = f"[Error: {e}]"
-            return chunk_idx, service_name, result
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = []
-            for chunk_idx, chunk in enumerate(chunks):
-                for service_name in services:
-                    future = executor.submit(translate_task, chunk, chunk_idx, service_name)
-                    futures.append(future)
-
-            chunk_results: dict[str, dict[int, str]] = {service: {} for service in services}
-
-            for future in concurrent.futures.as_completed(futures):
-                chunk_idx, service_name, result = future.result()
+        async def translate_task(chunk: str, chunk_idx: int, service_name: str) -> None:
+            nonlocal completed
+            async with semaphore:
+                try:
+                    result = await asyncio.to_thread(
+                        self.translate, chunk, source_lang, target_lang, service_name
+                    )
+                except Exception as e:
+                    logger.error("Chunk %d failed for %s: %s", chunk_idx, service_name, e)
+                    result = f"[Error: {e}]"
                 chunk_results[service_name][chunk_idx] = result
                 completed += 1
                 if progress_callback:
                     progress_callback(completed, total_tasks)
 
+        tasks = []
+        for chunk_idx, chunk in enumerate(chunks):
+            for service_name in services:
+                tasks.append(translate_task(chunk, chunk_idx, service_name))
+
+        await asyncio.gather(*tasks)
+
+        final_results: dict[str, str] = {}
         for service_name in services:
             ordered_chunks = [chunk_results[service_name][i] for i in range(len(chunks))]
-            all_results[service_name] = ordered_chunks
+            final_results[service_name] = " ".join(ordered_chunks)
 
-        final_results = {service: " ".join(chunks) for service, chunks in all_results.items()}
+        for service in final_results:
+            final_results[service] = self.glossary.apply(final_results[service])
+
+        self.cache.save()
+        return final_results
+
+    def _translate_parallel_sync(
+        self,
+        text: str,
+        source_lang: str,
+        target_lang: str,
+        services: list[str],
+        chunk_size: int,
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> dict[str, str]:
+        """Synchronous fallback when already inside an event loop."""
+        chunks = self.split_text(text, chunk_size)
+        total_tasks = len(chunks) * len(services)
+        completed = 0
+
+        all_results: dict[str, list[str]] = {service: [] for service in services}
+
+        for chunk in chunks:
+            for service_name in services:
+                try:
+                    result = self.translate(chunk, source_lang, target_lang, service_name)
+                except Exception as e:
+                    result = f"[Error: {e}]"
+                all_results[service_name].append(result)
+                completed += 1
+                if progress_callback:
+                    progress_callback(completed, total_tasks)
+
+        final_results = {
+            service: " ".join(chunks_list) for service, chunks_list in all_results.items()
+        }
 
         for service in final_results:
             final_results[service] = self.glossary.apply(final_results[service])
