@@ -289,6 +289,8 @@ class MyService(TranslationService):
         return "My Service"
 ```
 
+For **OpenAI-compatible AI services**, inherit from `LLMTranslationService` instead — you only need to implement `_create_client()` and `_is_available()`. Translation, prompts, streaming, and error handling are all inherited.
+
 Register it in your package's `pyproject.toml`:
 
 ```toml
@@ -297,6 +299,8 @@ myservice = "my_service.plugin:MyService"
 ```
 
 Install the package (`pip install .`) and PolyTranslate will discover it automatically.
+
+See [`examples/plugin/`](examples/plugin/) for a minimal example and [`examples/plugin-llm/`](examples/plugin-llm/) for an AI service example (Mistral).
 
 ---
 

@@ -293,7 +293,7 @@ Runtime config (gitignored):
 4. Add class-level `_rate_limiter = RateLimiter(min_interval=...)` and call `self._rate_limiter.wait()` before each free API request
 
 **Plugin Service (external package, no code changes)**:
-1. Create a package with a class implementing `TranslationService`
+1. Create a package with a class implementing `TranslationService` (or `LLMTranslationService` for OpenAI-compatible AI APIs)
 2. Constructor must accept a single `Settings` argument
 3. Register entry point in the package's `pyproject.toml`:
    ```toml
@@ -301,6 +301,7 @@ Runtime config (gitignored):
    myservice = "my_package.module:MyServiceClass"
    ```
 4. Install the package — PolyTranslate discovers it automatically via `discover_plugins()`
+5. See working examples: `examples/plugin/` (minimal echo) and `examples/plugin-llm/` (Mistral AI)
 
 ### Add Voting Agent Type
 
