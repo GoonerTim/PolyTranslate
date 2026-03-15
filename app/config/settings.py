@@ -7,47 +7,25 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
+from app.config.schema import (
+    CLAUDE_MODELS,
+    GROQ_MODELS,
+    OPENAI_MODELS,
+    ApiKeysSchema,
+    SettingsSchema,
+)
+
 logger = logging.getLogger(__name__)
 
 
 class Settings:
     """Manages application settings stored in a JSON file."""
 
-    OPENAI_MODELS = [
-        "gpt-4.1",
-        "gpt-4.1-mini",
-        "gpt-4.1-nano",
-        "gpt-4o",
-        "gpt-4o-mini",
-        "o3-mini",
-        "gpt-4-turbo",
-    ]
-
-    CLAUDE_MODELS = [
-        "claude-sonnet-4-6",
-        "claude-haiku-4-5-20251001",
-        "claude-3-7-sonnet-20250219",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-5-haiku-20241022",
-    ]
-
-    GROQ_MODELS = [
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
-        "gemma2-9b-it",
-        "mixtral-8x7b-32768",
-    ]
-
-    VALIDATORS: dict[str, tuple[type, Any]] = {
-        "theme": (str, {"choices": ["dark", "light"]}),
-        "chunk_size": (int, {"min": 100, "max": 5000}),
-        "max_workers": (int, {"min": 1, "max": 10}),
-        "cache_max_size": (int, {"min": 100, "max": 100000}),
-        "cache_enabled": (bool, {}),
-        "deepl_plan": (str, {"choices": ["free", "pro"]}),
-        "renpy_processing_mode": (str, {"choices": ["scenes", "chunks", "full"]}),
-        "ai_evaluation_auto": (bool, {}),
-    }
+    OPENAI_MODELS = OPENAI_MODELS
+    CLAUDE_MODELS = CLAUDE_MODELS
+    GROQ_MODELS = GROQ_MODELS
 
     DEFAULT_SETTINGS: dict[str, Any] = {
         "api_keys": {
@@ -89,7 +67,7 @@ class Settings:
         else:
             self.config_path = Path(config_path)
 
-        self._settings: dict[str, Any] = {}
+        self._schema: SettingsSchema = SettingsSchema()
         self.load()
 
     def load(self) -> None:
@@ -97,17 +75,21 @@ class Settings:
             try:
                 with open(self.config_path, encoding="utf-8") as f:
                     loaded = json.load(f)
-                self._settings = self._deep_merge(self.DEFAULT_SETTINGS.copy(), loaded)
+                merged = self._deep_merge(self.DEFAULT_SETTINGS.copy(), loaded)
+                self._schema = SettingsSchema.model_validate(merged)
             except (json.JSONDecodeError, OSError) as e:
                 logger.warning("Failed to load settings from %s: %s", self.config_path, e)
-                self._settings = self.DEFAULT_SETTINGS.copy()
+                self._schema = SettingsSchema()
+            except ValidationError as e:
+                logger.warning("Invalid settings in %s: %s", self.config_path, e)
+                self._schema = SettingsSchema()
         else:
-            self._settings = self.DEFAULT_SETTINGS.copy()
+            self._schema = SettingsSchema()
 
     def save(self) -> None:
         try:
             with open(self.config_path, "w", encoding="utf-8") as f:
-                json.dump(self._settings, f, indent=2, ensure_ascii=False)
+                json.dump(self.to_dict(), f, indent=2, ensure_ascii=False)
         except OSError as e:
             raise ValueError(f"Failed to save settings: {e}") from e
 
@@ -121,31 +103,50 @@ class Settings:
         return result
 
     def get(self, key: str, default: Any = None) -> Any:
-        return self._settings.get(key, default)
+        if hasattr(self._schema, key):
+            value = getattr(self._schema, key)
+            if isinstance(value, ApiKeysSchema):
+                return value.model_dump()
+            return value
+        # Check pydantic extra fields
+        extras = self._schema.model_extra or {}
+        if key in extras:
+            return extras[key]
+        return default
+
+    # Map Pydantic field types to friendly names for error messages
+    _FIELD_TYPES: dict[str, tuple[str, type]] = {
+        "theme": ("str", str),
+        "deepl_plan": ("str", str),
+        "renpy_processing_mode": ("str", str),
+        "chunk_size": ("int", int),
+        "max_workers": ("int", int),
+        "cache_max_size": ("int", int),
+        "cache_enabled": ("bool", bool),
+        "ai_evaluation_auto": ("bool", bool),
+    }
 
     def validate(self, key: str, value: Any) -> None:
         """Validate a setting value. Raises ValueError if invalid."""
-        if key in self.VALIDATORS:
-            expected_type, rules = self.VALIDATORS[key]
-            if not isinstance(value, expected_type):
+        # Pre-check: type mismatch for known fields — produce backward-compatible messages
+        if key in self._FIELD_TYPES:
+            type_name, expected_type = self._FIELD_TYPES[key]
+            if expected_type is bool:
+                if not isinstance(value, bool):
+                    raise ValueError(
+                        f"Invalid type for '{key}': expected {type_name}, "
+                        f"got {type(value).__name__}"
+                    )
+            elif not isinstance(value, expected_type) or isinstance(value, bool):
                 raise ValueError(
-                    f"Invalid type for '{key}': expected {expected_type.__name__}, "
-                    f"got {type(value).__name__}"
+                    f"Invalid type for '{key}': expected {type_name}, got {type(value).__name__}"
                 )
-            if "choices" in rules and value not in rules["choices"]:
-                raise ValueError(
-                    f"Invalid value for '{key}': {value!r}. "
-                    f"Must be one of: {', '.join(str(c) for c in rules['choices'])}"
-                )
-            if "min" in rules and value < rules["min"]:
-                raise ValueError(f"Value for '{key}' must be >= {rules['min']}, got {value}")
-            if "max" in rules and value > rules["max"]:
-                raise ValueError(f"Value for '{key}' must be <= {rules['max']}, got {value}")
 
+        # Model validation for known model keys — pre-check for backward compat messages
         model_lists = {
-            "openai_model": self.OPENAI_MODELS,
-            "claude_model": self.CLAUDE_MODELS,
-            "groq_model": self.GROQ_MODELS,
+            "openai_model": OPENAI_MODELS,
+            "claude_model": CLAUDE_MODELS,
+            "groq_model": GROQ_MODELS,
         }
         if key in model_lists:
             if not isinstance(value, str) or not value:
@@ -154,65 +155,87 @@ class Settings:
                 allowed = ", ".join(model_lists[key])
                 raise ValueError(f"Unknown model for '{key}': {value!r}. Available: {allowed}")
 
+        try:
+            current = self.to_dict()
+            current[key] = value
+            SettingsSchema.model_validate(current)
+        except ValidationError as e:
+            # Extract the original ValueError message from Pydantic
+            for error in e.errors():
+                if error.get("type") == "value_error":
+                    msg = str(error.get("msg", ""))
+                    # Pydantic prepends "Value error, " — strip it
+                    if msg.startswith("Value error, "):
+                        msg = msg[len("Value error, ") :]
+                    raise ValueError(msg) from e
+            raise ValueError(str(e)) from e
+
     def set(self, key: str, value: Any) -> None:
         self.validate(key, value)
-        self._settings[key] = value
+        current = self.to_dict()
+        current[key] = value
+        self._schema = SettingsSchema.model_validate(current)
 
     def get_api_keys(self) -> dict[str, str]:
-        return self._settings.get("api_keys", {}).copy()
+        return self._schema.api_keys.model_dump()
 
     def set_api_key(self, service: str, key: str) -> None:
-        if "api_keys" not in self._settings:
-            self._settings["api_keys"] = {}
-        self._settings["api_keys"][service] = key
+        keys = self._schema.api_keys.model_dump()
+        keys[service] = key
+        self._schema.api_keys = ApiKeysSchema.model_validate(keys)
 
     def get_api_key(self, service: str) -> str:
-        return self._settings.get("api_keys", {}).get(service, "")
+        keys = self._schema.api_keys.model_dump()
+        return keys.get(service, "")
 
     def get_theme(self) -> str:
-        return self._settings.get("theme", "dark")
+        return self._schema.theme
 
     def set_theme(self, theme: str) -> None:
         self.set("theme", theme)
 
     def get_chunk_size(self) -> int:
-        return self._settings.get("chunk_size", 1000)
+        return self._schema.chunk_size
 
     def set_chunk_size(self, size: int) -> None:
         self.set("chunk_size", size)
 
     def get_max_workers(self) -> int:
-        return self._settings.get("max_workers", 3)
+        return self._schema.max_workers
 
     def set_max_workers(self, workers: int) -> None:
         self.set("max_workers", workers)
 
     def get_selected_services(self) -> list[str]:
-        return self._settings.get("selected_services", ["deepl"])
+        return self._schema.selected_services
 
     def set_selected_services(self, services: list[str]) -> None:
-        self._settings["selected_services"] = services
+        self._schema.selected_services = services
 
     def get_source_language(self) -> str:
-        return self._settings.get("source_language", "auto")
+        return self._schema.source_language
 
     def set_source_language(self, lang: str) -> None:
-        self._settings["source_language"] = lang
+        self._schema.source_language = lang
 
     def get_target_language(self) -> str:
-        return self._settings.get("target_language", "ru")
+        return self._schema.target_language
 
     def set_target_language(self, lang: str) -> None:
-        self._settings["target_language"] = lang
+        self._schema.target_language = lang
 
     def get_window_geometry(self) -> str:
-        return self._settings.get("window_geometry", "1200x800")
+        return self._schema.window_geometry
 
     def set_window_geometry(self, geometry: str) -> None:
-        self._settings["window_geometry"] = geometry
+        self._schema.window_geometry = geometry
 
     def reset_to_defaults(self) -> None:
-        self._settings = self.DEFAULT_SETTINGS.copy()
+        self._schema = SettingsSchema()
 
     def to_dict(self) -> dict[str, Any]:
-        return self._settings.copy()
+        data = self._schema.model_dump()
+        # Merge extra fields into the top-level dict
+        if self._schema.model_extra:
+            data.update(self._schema.model_extra)
+        return data

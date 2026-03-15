@@ -41,6 +41,7 @@ def main() -> None:
         "l",
         "detect",
         "d",
+        "cache",
         "config",
         "c",
         "--help",

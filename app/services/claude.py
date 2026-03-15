@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.services.llm_base import LLMTranslationService
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 try:
     from anthropic import Anthropic
@@ -47,3 +50,16 @@ class ClaudeService(LLMTranslationService):
         if message.content and len(message.content) > 0:
             return message.content[0].text.strip()
         return ""
+
+    def _call_llm_stream(self, prompt: str, on_token: Callable[[str], None]) -> str:
+        client = self._get_client()
+        full_text: list[str] = []
+        with client.messages.stream(
+            model=self.model,
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}],
+        ) as stream:
+            for text in stream.text_stream:
+                full_text.append(text)
+                on_token(text)
+        return "".join(full_text).strip()

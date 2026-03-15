@@ -109,3 +109,72 @@ class TestLLMTranslationServiceBase:
         client1 = svc._get_client()
         client2 = svc._get_client()
         assert client1 is client2
+
+    def test_supports_streaming(self) -> None:
+        svc = _DummyLLM()
+        assert svc.supports_streaming() is True
+
+    def test_translate_stream_success(self) -> None:
+        svc = _DummyLLM()
+        mock_client = MagicMock()
+
+        chunk1 = MagicMock()
+        chunk1.choices = [MagicMock()]
+        chunk1.choices[0].delta.content = "Pri"
+        chunk2 = MagicMock()
+        chunk2.choices = [MagicMock()]
+        chunk2.choices[0].delta.content = "vet"
+        mock_client.chat.completions.create.return_value = iter([chunk1, chunk2])
+        svc._client = mock_client
+
+        tokens: list[str] = []
+        result = svc.translate_stream("Hello", "en", "ru", on_token=tokens.append)
+        assert result == "Privet"
+        assert tokens == ["Pri", "vet"]
+
+    def test_translate_stream_not_configured_raises(self) -> None:
+        svc = _DummyLLM(api_key="")
+        with pytest.raises(ValueError, match="not configured"):
+            svc.translate_stream("hello", "en", "ru", on_token=lambda t: None)
+
+    def test_call_llm_stream_empty_delta(self) -> None:
+        svc = _DummyLLM()
+        mock_client = MagicMock()
+        chunk = MagicMock()
+        chunk.choices = [MagicMock()]
+        chunk.choices[0].delta.content = None
+        mock_client.chat.completions.create.return_value = iter([chunk])
+        svc._client = mock_client
+
+        tokens: list[str] = []
+        result = svc._call_llm_stream("test", on_token=tokens.append)
+        assert result == ""
+        assert tokens == []
+
+    def test_call_llm_stream_empty_choices(self) -> None:
+        svc = _DummyLLM()
+        mock_client = MagicMock()
+        chunk = MagicMock()
+        chunk.choices = []
+        mock_client.chat.completions.create.return_value = iter([chunk])
+        svc._client = mock_client
+
+        tokens: list[str] = []
+        result = svc._call_llm_stream("test", on_token=tokens.append)
+        assert result == ""
+        assert tokens == []
+
+    def test_translate_stream_wraps_exception(self) -> None:
+        svc = _DummyLLM()
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = RuntimeError("API down")
+        svc._client = mock_client
+
+        with pytest.raises(ValueError, match="Dummy API error"):
+            svc.translate_stream("Hello", "en", "ru", on_token=lambda t: None)
+
+    def test_build_messages(self) -> None:
+        msgs = LLMTranslationService._build_messages("test prompt")
+        assert len(msgs) == 2
+        assert msgs[0]["role"] == "system"
+        assert msgs[1]["content"] == "test prompt"

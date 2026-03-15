@@ -15,8 +15,11 @@ def _make_settings(**overrides: object) -> Settings:
     s = Settings.__new__(Settings)
     s.config_path = MagicMock()
     s.config_path.exists.return_value = False
-    s._settings = {"api_keys": {}}
-    s._settings.update(overrides)
+    from app.config.schema import SettingsSchema
+
+    data: dict[str, object] = {"api_keys": {}}
+    data.update(overrides)
+    s._schema = SettingsSchema.model_validate(data)
     return s
 
 
@@ -139,3 +142,163 @@ class TestTranslatorReload:
         original_ids = set(t.services.keys())
         t.reload_services()
         assert set(t.services.keys()) == original_ids
+
+
+class TestChunkDeduplication:
+    @patch("app.core.translator.discover_plugins", return_value=[])
+    def test_duplicate_chunks_translated_once(self, _: MagicMock) -> None:
+        """Identical chunks should only call the service once."""
+        t = Translator(_make_settings())
+        mock_svc = MagicMock()
+        mock_svc.is_configured.return_value = True
+        mock_svc.translate.return_value = "translated"
+        t.services["svc"] = mock_svc
+
+        # Force split_text to return duplicates
+        with patch.object(t, "split_text", return_value=["hello", "hello", "hello"]):
+            result = t.translate_parallel("hello hello hello", "en", "ru", ["svc"])
+
+        # Service should be called only once for the unique chunk
+        assert mock_svc.translate.call_count == 1
+        # Result should still have 3 chunks joined
+        assert result["svc"] == "translated translated translated"
+
+    @patch("app.core.translator.discover_plugins", return_value=[])
+    def test_duplicate_chunks_sync_fallback(self, _: MagicMock) -> None:
+        """Deduplication also works in sync fallback."""
+        import asyncio
+
+        t = Translator(_make_settings())
+        mock_svc = MagicMock()
+        mock_svc.is_configured.return_value = True
+        mock_svc.translate.return_value = "result"
+        t.services["svc"] = mock_svc
+
+        with patch.object(t, "split_text", return_value=["a", "b", "a", "b", "a"]):
+
+            async def run_inside_loop() -> dict[str, str]:
+                return t.translate_parallel("a b a b a", "en", "ru", ["svc"])
+
+            result = asyncio.run(run_inside_loop())
+
+        # Only 2 unique chunks: "a" and "b"
+        assert mock_svc.translate.call_count == 2
+        assert result["svc"] == "result result result result result"
+
+    @patch("app.core.translator.discover_plugins", return_value=[])
+    def test_no_duplicates_all_translated(self, _: MagicMock) -> None:
+        """When all chunks are unique, all are translated."""
+        t = Translator(_make_settings())
+        mock_svc = MagicMock()
+        mock_svc.is_configured.return_value = True
+        mock_svc.translate.side_effect = lambda text, *a: f"t_{text}"
+        t.services["svc"] = mock_svc
+
+        with patch.object(t, "split_text", return_value=["a", "b", "c"]):
+            result = t.translate_parallel("a b c", "en", "ru", ["svc"])
+
+        assert mock_svc.translate.call_count == 3
+        assert result["svc"] == "t_a t_b t_c"
+
+    @patch("app.core.translator.discover_plugins", return_value=[])
+    def test_dedup_progress_reports_unique_count(self, _: MagicMock) -> None:
+        """Progress callback total should reflect unique tasks, not original."""
+        t = Translator(_make_settings())
+        mock_svc = MagicMock()
+        mock_svc.is_configured.return_value = True
+        mock_svc.translate.return_value = "ok"
+        t.services["svc"] = mock_svc
+
+        progress_calls: list[tuple[int, int]] = []
+
+        def cb(completed: int, total: int) -> None:
+            progress_calls.append((completed, total))
+
+        with patch.object(t, "split_text", return_value=["x", "x", "x"]):
+            t.translate_parallel("x x x", "en", "ru", ["svc"], progress_callback=cb)
+
+        # Only 1 unique chunk * 1 service = 1 total task
+        assert all(total == 1 for _, total in progress_calls)
+
+
+class TestStreamingTranslation:
+    @patch("app.core.translator.discover_plugins", return_value=[])
+    def test_translate_stream_with_llm_service(self, _: MagicMock) -> None:
+        """LLM service gets streaming callback when on_token provided."""
+        from app.services.llm_base import LLMTranslationService
+
+        t = Translator(_make_settings())
+        mock_svc = MagicMock(spec=LLMTranslationService)
+        mock_svc.is_configured.return_value = True
+        mock_svc.supports_streaming.return_value = True
+        mock_svc.translate_stream.return_value = "streamed result"
+        t.services["llm_svc"] = mock_svc
+
+        tokens: list[str] = []
+        result = t.translate("hello", "en", "ru", "llm_svc", on_token=tokens.append)
+        assert result == "streamed result"
+        mock_svc.translate_stream.assert_called_once()
+
+    @patch("app.core.translator.discover_plugins", return_value=[])
+    def test_translate_stream_cache_hit_emits_full(self, _: MagicMock) -> None:
+        """On cache hit, on_token receives the full cached result."""
+        t = Translator(_make_settings())
+        mock_svc = MagicMock()
+        mock_svc.is_configured.return_value = True
+        t.services["svc"] = mock_svc
+        t.cache.put("hello", "en", "ru", "svc", "cached")
+
+        tokens: list[str] = []
+        result = t.translate("hello", "en", "ru", "svc", on_token=tokens.append)
+        assert "cached" in result
+        assert len(tokens) == 1
+        mock_svc.translate.assert_not_called()
+
+    @patch("app.core.translator.discover_plugins", return_value=[])
+    def test_translate_stream_non_llm_emits_full(self, _: MagicMock) -> None:
+        """Non-LLM service emits full result as single token."""
+        t = Translator(_make_settings())
+        mock_svc = MagicMock()  # not an LLMTranslationService
+        mock_svc.is_configured.return_value = True
+        mock_svc.translate.return_value = "full result"
+        t.services["basic"] = mock_svc
+
+        tokens: list[str] = []
+        result = t.translate("hello", "en", "ru", "basic", on_token=tokens.append)
+        assert result == "full result"
+        assert tokens == ["full result"]
+
+    @patch("app.core.translator.discover_plugins", return_value=[])
+    def test_translate_no_callback_works(self, _: MagicMock) -> None:
+        """Without on_token, translate works as before."""
+        t = Translator(_make_settings())
+        mock_svc = MagicMock()
+        mock_svc.is_configured.return_value = True
+        mock_svc.translate.return_value = "result"
+        t.services["svc"] = mock_svc
+
+        result = t.translate("hello", "en", "ru", "svc")
+        assert result == "result"
+
+    @patch("app.core.translator.discover_plugins", return_value=[])
+    def test_translate_parallel_with_on_token(self, _: MagicMock) -> None:
+        """translate_parallel passes per-service callbacks through."""
+        from app.services.llm_base import LLMTranslationService
+
+        t = Translator(_make_settings())
+        mock_svc = MagicMock(spec=LLMTranslationService)
+        mock_svc.is_configured.return_value = True
+        mock_svc.supports_streaming.return_value = True
+        mock_svc.translate_stream.return_value = "streamed"
+        t.services["llm"] = mock_svc
+
+        tokens: list[str] = []
+        result = t.translate_parallel(
+            "hello",
+            "en",
+            "ru",
+            ["llm"],
+            on_token={"llm": tokens.append},
+        )
+        assert "llm" in result
+        mock_svc.translate_stream.assert_called_once()

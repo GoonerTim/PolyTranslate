@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
+from typing import Any
 
 
 class TranslationWorkflowMixin:
@@ -37,6 +38,9 @@ class TranslationWorkflowMixin:
         self.settings.set_selected_services(services)
         self.settings.save()
 
+        # Prepare streaming tabs before starting the thread
+        self._prepare_streaming_tabs(valid_services)
+
         thread = threading.Thread(target=self._run_translation, args=(valid_services,))
         thread.daemon = True
         thread.start()
@@ -62,6 +66,15 @@ class TranslationWorkflowMixin:
                 0, lambda: self.progress.set_status(f"Translating... {completed}/{total}")
             )
 
+        # Build per-service streaming callbacks
+        def _make_stream_cb(svc: str) -> Any:
+            def _cb(token: str) -> None:
+                self.root.after(0, lambda t=token, s=svc: self._append_stream_token(s, t))
+
+            return _cb
+
+        on_token_map = {svc: _make_stream_cb(svc) for svc in services}
+
         try:
             self._translations = self.translator.translate_parallel(
                 self._current_text,
@@ -71,6 +84,7 @@ class TranslationWorkflowMixin:
                 chunk_size=self.settings.get_chunk_size(),
                 max_workers=self.settings.get_max_workers(),
                 progress_callback=progress_callback,
+                on_token=on_token_map,
             )
 
             file_name = Path(self._current_file).name if self._current_file else ""

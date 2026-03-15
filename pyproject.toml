@@ -1,6 +1,6 @@
 [project]
 name = "polytranslate"
-version = "3.0.0"
+version = "3.1.0"
 requires-python = ">=3.10"
 description = "Powerful desktop translation application with support for multiple translation services and file formats"
 authors = [

@@ -212,6 +212,32 @@ class ResultsTabMixin:
         except Exception as e:
             self._status(f"Export failed: {e}")
 
+    def _prepare_streaming_tabs(self, services: list[str]) -> None:
+        results_tab = self.results_tabview.tab("\U0001f4dd Results")
+        for widget in results_tab.winfo_children():
+            widget.destroy()
+
+        self._streaming_textboxes: dict[str, ctk.CTkTextbox] = {}
+
+        service_tabview = ctk.CTkTabview(results_tab, corner_radius=8)
+        service_tabview.pack(fill="both", expand=True, padx=5, pady=5)
+
+        for svc in services:
+            icon = self.SERVICE_ICONS.get(svc, "\u2022")
+            tab_name = f"{icon} {svc.upper()}"
+            service_tabview.add(tab_name)
+            tab = service_tabview.tab(tab_name)
+
+            text_box = ctk.CTkTextbox(tab, wrap="word", corner_radius=8, font=ctk.CTkFont(size=13))
+            text_box.pack(fill="both", expand=True, padx=10, pady=10)
+            self._streaming_textboxes[svc] = text_box
+
+    def _append_stream_token(self, service: str, token: str) -> None:
+        if hasattr(self, "_streaming_textboxes") and service in self._streaming_textboxes:
+            tb = self._streaming_textboxes[service]
+            tb.insert("end", token)
+            tb.see("end")
+
     def _copy_to_clipboard(self, text: str) -> None:
         self.root.clipboard_clear()
         self.root.clipboard_append(text)

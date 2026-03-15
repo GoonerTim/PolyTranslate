@@ -3,7 +3,7 @@
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-641%20passed-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-638%20passed-brightgreen.svg)
 ![Coverage](https://img.shields.io/badge/coverage-94%25-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
@@ -19,16 +19,18 @@
 
 PolyTranslate is a feature-rich translation application with a **modern UI** and a **full CLI mode**, built with Python and CustomTkinter. Translate text and documents using multiple translation APIs simultaneously, compare results, and manage terminology with a built-in glossary.
 
-## 🆕 What's New in v3.0
+## 🆕 What's New in v3.1
 
-- **📤 Export Results**: Save translations as DOCX, PDF, or XLIFF 1.2 (`--export results.docx`)
-- **🔄 TMX Exchange**: Export/import translation cache in TMX 1.4b format for CAT tools
-- **🎬 SRT/ASS Subtitles**: Translate `.srt` and `.ass`/`.ssa` subtitle files with metadata preservation
-- **🔌 Plugin System**: Add translation services via entry points — no code changes needed
-- **🏗️ Modular Architecture**: GUI split into 10 focused mixin modules; services use shared LLM base class
+- **⚙️ Pydantic Settings**: Config validation powered by Pydantic schemas instead of hand-rolled validators
+- **🖥️ Click CLI**: CLI rewritten with Click — auto-generated help, type validation, cleaner code
+- **⚡ Chunk Deduplication**: Identical text segments translated only once per service in parallel mode
+- **🧠 Detection Cache**: Language detection results cached (LRU, 256 entries) — no redundant API calls
+- **🌊 Streaming Translation**: LLM services stream tokens as they generate — live preview in GUI and CLI (`--stream`)
 
 <details>
 <summary>Previous versions</summary>
+
+**v3.0 — Export & Plugins**: Export to DOCX/PDF/XLIFF, TMX exchange, SRT/ASS subtitles, plugin system, modular GUI.
 
 **v2.6 — Batch Folder Translation**: Translate all files in a directory at once (GUI, CLI, API). Custom extensions, output directories, error resilience.
 
@@ -82,6 +84,8 @@ pip install -r requirements.txt
 python main.py
 ```
 
+> **Reproducible install**: Use `pip install -r requirements.lock` to install exact pinned versions of all dependencies.
+
 ### Development Install
 
 ```bash
@@ -122,6 +126,9 @@ python main.py translate -f document.pdf -s en -t ru -o output.txt
 
 # JSON output for scripting
 python main.py translate "Hello" --format json
+
+# Streaming mode (LLM tokens shown as they arrive)
+python main.py translate "Hello world" -t ru --stream
 
 # Pipe from stdin
 echo "Hello world" | python main.py translate -t ru
@@ -225,7 +232,7 @@ PolyTranslate/
 │   │   └── ...
 │   ├── utils/           # Utilities (glossary, cache, rate limiter)
 │   └── cli.py           # Command-line interface
-├── tests/               # Test suite (641 tests, 94% coverage)
+├── tests/               # Test suite (652 tests, 93% coverage)
 ├── main.py              # Entry point (GUI or CLI)
 └── pyproject.toml       # Project configuration
 ```
@@ -247,7 +254,7 @@ pyinstaller build.spec       # Build executable
 - **AIEvaluator**: AI-powered translation quality analysis
 - **AgentVoting**: Multi-agent voting with weighted consensus
 - **FileProcessor**: File format reading/writing (11 formats incl. SRT/ASS subtitles)
-- **Settings**: Configuration with validation (types, ranges, model lists)
+- **Settings**: Pydantic-validated configuration (types, ranges, model lists)
 - **Glossary / LanguageDetector**: Term replacement, language detection
 - **PluginLoader**: Discovers services via `polytranslate.services` entry points
 
@@ -287,8 +294,8 @@ Install the package (`pip install .`) and PolyTranslate will discover it automat
 
 ## 📊 Testing
 
-- **641 tests**, **94% coverage** (GUI excluded)
-- Service mocking, AI evaluation, agent voting, batch translation, CLI, settings validation, file formats, integration tests
+- **652 tests**, **93% coverage** (GUI excluded)
+- Service mocking, AI evaluation, agent voting, batch translation, CLI, streaming, settings validation, file formats, integration tests
 
 ---
 

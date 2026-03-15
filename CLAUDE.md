@@ -17,6 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **🤖 AI-Powered Evaluation**: Rate translation quality with scores (0-10), explanations, and AI-generated improvements
 - **🗳️ Multi-Agent Voting**: Multiple AI agents (local + cloud) independently evaluate and vote on best translations
 - **🎮 Ren'Py Context Awareness**: Game context extraction (characters, scenes, dialogue) for smarter translation of visual novels
+- **🌊 Streaming Translation**: LLM services (OpenAI, Claude, Groq, OpenRouter, LocalAI) stream tokens as they generate — visible in both GUI and CLI
 
 ## Common Commands
 
@@ -28,6 +29,9 @@ python main.py
 # CLI mode
 python main.py translate "Hello world" -t ru
 python main.py --help
+
+# Streaming mode (LLM services show tokens as they arrive)
+python main.py translate "Hello world" -t ru --stream
 
 # Batch folder translation (CLI)
 python main.py translate -d /path/to/game/ -t ru
@@ -113,7 +117,9 @@ class TranslationService(ABC):
     def get_name(self) -> str
 ```
 
-**LLM Base Class**: `app/services/llm_base.py::LLMTranslationService` — shared base for OpenAI-compatible services (OpenAI, Groq, OpenRouter, LocalAI). Claude overrides `_call_llm()` for Anthropic's API. Subclasses only define `_create_client()` and `_is_available()`.
+**LLM Base Class**: `app/services/llm_base.py::LLMTranslationService` — shared base for OpenAI-compatible services (OpenAI, Groq, OpenRouter, LocalAI). Claude overrides `_call_llm()` and `_call_llm_stream()` for Anthropic's API. Subclasses only define `_create_client()` and `_is_available()`.
+
+**Streaming Translation**: LLM services support token-by-token streaming via `translate_stream(text, source_lang, target_lang, on_token)` and `_call_llm_stream(prompt, on_token)`. OpenAI-compatible services use `stream=True` on `chat.completions.create()`; Claude uses `client.messages.stream()` context manager. Non-LLM services (DeepL, Google, Yandex) emit the full result as a single token. Cache hits also emit the full cached result. The `Translator.translate()` method accepts an optional `on_token` callback; `translate_parallel()` accepts `on_token: dict[str, Callable]` keyed by service name. GUI streams to per-service tabs via `root.after()`; CLI streams to stderr with `--stream` flag.
 
 Services are **dynamically initialized** in `Translator._initialize_services()`.
 
@@ -127,13 +133,13 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 ### Key Architectural Decisions
 
-1. **Parallel Processing**: `Translator.translate_parallel()` uses `asyncio.gather()` with `asyncio.to_thread()` to translate multiple chunks across multiple services concurrently. Configurable via `max_workers` (semaphore) and `chunk_size`. Falls back to synchronous execution if already inside a running event loop.
+1. **Parallel Processing**: `Translator.translate_parallel()` uses `asyncio.gather()` with `asyncio.to_thread()` to translate multiple chunks across multiple services concurrently. Configurable via `max_workers` (semaphore) and `chunk_size`. Falls back to synchronous execution if already inside a running event loop. **Chunk deduplication**: identical chunks are translated only once per service, results mapped back to original positions.
 
 2. **Sentence Tokenization**: Uses NLTK's `sent_tokenize()` with `SimpleTokenizer` fallback if NLTK data unavailable.
 
-3. **Language Detection**: `LanguageDetector.detect()` wraps `langdetect` library with graceful degradation (returns None if unavailable or text too short).
+3. **Language Detection**: `LanguageDetector.detect()` wraps `langdetect` library with graceful degradation (returns None if unavailable or text too short). Results cached in class-level `OrderedDict` LRU cache (max 256 entries, keyed on first 200 chars). `clear_cache()` available for testing.
 
-4. **Settings Persistence**: `Settings` class manages JSON-based config in `config.json`. Uses deep merge strategy for updates (`_deep_merge()` method).
+4. **Settings Persistence**: `Settings` class manages JSON-based config in `config.json`. Uses Pydantic `SettingsSchema` for validation and deep merge strategy for loading partial configs (`_deep_merge()` method).
 
 5. **GUI-Core Separation**: GUI (`app/gui/`) is completely decoupled from core logic (`app/core/`). Communication via callbacks and threading to prevent UI freezing.
 
@@ -155,11 +161,13 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 ### Module Responsibilities
 
 **CLI**:
-- **`app/cli.py`**: Command-line interface with 6 commands (translate, services, languages, detect, cache, config)
-  - `cmd_translate()`: Translates text/file with progress bar and file info header (name, languages, services), supports stdin pipe, JSON output
+- **`app/cli.py`**: Click-based command-line interface with 6 commands (translate, services, languages, detect, cache, config)
+  - Uses `click.group` + `click.command` decorators — auto-generated help, type validation, choice parameters
+  - `cmd_translate()`: Translates text/file with progress bar and file info header (name, languages, services), supports stdin pipe, JSON output, `--stream` flag for token-by-token LLM output
   - `_cmd_translate_directory()`: Batch folder translation with per-file progress  - CLI flags for batch: `-d`/`--directory`, `--output-dir`, `--extensions`, `--no-recursive`, `--service`
   - `--export`: Export results to DOCX/PDF/XLIFF (e.g. `--export results.docx`)
-  - `cmd_cache()`: Export/import translation cache in TMX format — `cache export-tmx path.tmx`, `cache import-tmx path.tmx`
+  - `cache` subgroup: Export/import translation cache in TMX format — `cache export-tmx path.tmx`, `cache import-tmx path.tmx`
+  - `run_cli()` resolves command aliases (t→translate, s→services, l→languages, d→detect, c→config)
   - Smart dispatch in `main.py`: CLI commands auto-detected from `sys.argv[1]`, falls back to GUI
 
 **Core Logic**:
@@ -179,10 +187,8 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 - **`app/core/renpy_context.py`**: Ren'Py game context extractor — parses characters, scenes, dialogue from `.rpy` files
 
 **Configuration**:
-- **`app/config/settings.py`**: JSON persistence, API key management, config deep merge, settings validation
-  - `OPENAI_MODELS`, `CLAUDE_MODELS`, `GROQ_MODELS`: Canonical model lists (single source of truth for services, settings, and GUI)
-  - `VALIDATORS`: Declarative validation rules (type, choices, min/max) for known keys
-  - `validate()` called by `set()` — enforces types, ranges, allowed values, and model names
+- **`app/config/schema.py`**: Pydantic `SettingsSchema` model — canonical field definitions, validators, and model lists (`OPENAI_MODELS`, `CLAUDE_MODELS`, `GROQ_MODELS`). `ApiKeysSchema` for nested api_keys. All validation via `@field_validator` with backward-compatible error messages. `extra="allow"` on both models for plugin/custom keys.
+- **`app/config/settings.py`**: JSON persistence, API key management, config deep merge. Wraps `SettingsSchema` internally (`self._schema`). `validate()` pre-checks types for known fields, then delegates to Pydantic. Public API unchanged (get/set/getters/setters).
 - **`app/config/languages.py`**: Language code mappings for different services
 
 **Services** (with FREE API support):
@@ -222,13 +228,13 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 ### Testing Strategy
 
-**641 tests, 94% coverage** (GUI excluded)
+**652 tests, 93% coverage** (GUI excluded)
 
 - **Service Tests**: Mock HTTP with `respx` library (httpx-compatible)
 - **Free API Tests**: Test fallback mechanism for DeepL, Google, and Yandex
-- **LLM Base Tests** (`tests/test_llm_base.py`): 11 tests, 100% coverage — translate, caching, error wrapping, auto source lang
+- **LLM Base Tests** (`tests/test_llm_base.py`): 18 tests, 100% coverage — translate, streaming (success, empty delta, empty choices, error wrapping), caching, auto source lang
 - **Diff View Tests** (`tests/test_diff_view.py`): 10 tests (diff logic, revert, edge cases)
-- **Settings Tests** (`tests/test_settings.py`): 43 tests (includes validation for types, ranges, models)
+- **Settings Tests** (`tests/test_settings.py`): 43 tests (Pydantic-based validation for types, ranges, models)
 - **Rate Limiter Tests** (`tests/test_rate_limiter.py`): 14 tests, 98% coverage — includes `retry_with_backoff()` retry/429/error tests
 - **AI Evaluator Tests** (`tests/test_ai_evaluator.py`): 19 tests, 98% coverage
 - **Agent Voting Tests** (`tests/test_agent_voting.py`): 25 tests, 89% coverage
@@ -236,11 +242,11 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 - **Ren'Py Processor Tests** (`tests/test_renpy_processor.py`): 11 tests, 100% coverage — read/reconstruct, error wrapping
 - **Ren'Py Scene Splitting Tests** (`tests/test_file_processor_renpy_scenes.py`): 6 tests
 - **Subtitle Processor Tests** (`tests/test_subtitle_processor.py`): 14 tests, 100% coverage — SRT/ASS read/reconstruct, edge cases
-- **CLI Tests** (`tests/test_cli.py` + `tests/test_cli_extended.py`): 65 tests — translate, batch, cache, config, detect, services, helpers
+- **CLI Tests** (`tests/test_cli.py` + `tests/test_cli_extended.py`): 63 tests — Click-based, translate, batch, cache, config, detect, services, helpers, aliases, `--stream` flag
 - **Export Tests** (`tests/test_exporter.py`): 23 tests (DOCX content, PDF validity, XLIFF structure)
 - **Cache TMX Tests** (`tests/test_cache_tmx.py`): 17 tests (export structure, import parsing, round-trip, Unicode, edge cases)
 - **Batch Translator Tests** (`tests/test_batch_translator.py` + `tests/test_batch_extended.py`): 35 tests, 80% coverage — output paths, empty files, progress, errors
-- **Translator Tests** (`tests/test_translator.py` + `tests/test_translator_extended.py`): 30 tests, 98% coverage — init, cache hit, parallel sync fallback, error capture, reload
+- **Translator Tests** (`tests/test_translator.py` + `tests/test_translator_extended.py`): 35 tests, 85% coverage — init, cache hit, parallel sync fallback, error capture, reload, streaming (LLM, non-LLM, cache hit, parallel on_token)
 - **JSON Helpers Tests** (`tests/test_json_helpers.py`): 9 tests, 100% coverage — markdown fence stripping, error handling
 - **Language Tests** (`tests/test_languages.py`): 12 tests — language maps, code lookups, source/target filtering
 - **Integration Tests** (`tests/test_integration.py`): End-to-end workflows
@@ -248,6 +254,10 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 - **Fixtures** (`tests/conftest.py`): `temp_dir`, `sample_txt_file`, `sample_rpy_content`
 
 ### Configuration Files
+
+Dependency management:
+- **`requirements.txt`**: Minimum version ranges (`>=`) for all direct dependencies
+- **`requirements.lock`**: Full `pip freeze` snapshot — exact pinned versions of all transitive dependencies for reproducible installs
 
 Runtime config (gitignored):
 - **`config.json`**: API keys, theme, chunk_size, max_workers, selected_services, ai_evaluator_service, agents, renpy_game_folder, renpy_processing_mode, cache_enabled, cache_max_size
@@ -303,8 +313,10 @@ Runtime config (gitignored):
 - **API Key Security**: Never commit `config.json`. Keys stored locally only.
 - **Logging**: `setup_logging()` called in `main.py` at startup. All modules use `logging.getLogger(__name__)`. Logs written to `polytranslate.log`.
 - **Translation Cache**: `TranslationCache` in `Translator` caches raw translations (before glossary). Key = text + source + target + service. LRU eviction, thread-safe, persisted to `cache.json`. Supports TMX 1.4b export/import for interoperability with CAT tools.
-- **Coverage Target**: 70% minimum (pyproject.toml), currently 94% (641 tests). GUI excluded.
+- **Coverage Target**: 70% minimum (pyproject.toml), currently 93% (652 tests). GUI excluded.
 - **Ruff Configuration**: Line length 100, ignores E501, uses modern Python features (UP rules).
+- **Pydantic**: Used for settings validation (`app/config/schema.py`). `extra="allow"` permits arbitrary keys from plugins/GUI.
+- **Click**: CLI framework (`app/cli.py`). Command aliases resolved in `run_cli()`. Tests use `click.testing.CliRunner`.
 - **Language Code Mappings**: Different services use different codes. See `app/config/languages.py`. `get_language_name()` uses `LANGUAGES` dict directly (no separate `LANGUAGE_NAMES` dict).
 - **GUI Threading**: All long-running operations must use `threading.Thread` with `root.after()` callbacks.
 - **Ren'Py Processing**: `read_rpy()` extracts dialogue using regex. `reconstruct_rpy()` uses default parameters in closures to avoid variable binding issues (B007).

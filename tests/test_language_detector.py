@@ -158,3 +158,87 @@ class TestLanguageDetector:
             # Check that probabilities are in descending order
             probs = [prob for _, prob in results]
             assert probs == sorted(probs, reverse=True)
+
+
+class TestLanguageDetectorCache:
+    """Tests for language detection caching."""
+
+    @patch("app.core.language_detector.detect")
+    def test_cache_hit_avoids_second_call(self, mock_detect: pytest.fixture) -> None:
+        from app.core.language_detector import LANGDETECT_AVAILABLE
+
+        if not LANGDETECT_AVAILABLE:
+            pytest.skip("langdetect not available")
+
+        mock_detect.return_value = "en"
+        text = "This is a sample text in English language with enough words."
+
+        result1 = LanguageDetector.detect(text)
+        result2 = LanguageDetector.detect(text)
+
+        assert result1 == "en"
+        assert result2 == "en"
+        mock_detect.assert_called_once()
+
+    @patch("app.core.language_detector.detect")
+    def test_different_texts_not_cached(self, mock_detect: pytest.fixture) -> None:
+        from app.core.language_detector import LANGDETECT_AVAILABLE
+
+        if not LANGDETECT_AVAILABLE:
+            pytest.skip("langdetect not available")
+
+        mock_detect.side_effect = ["en", "ru"]
+        text_en = "This is a sample text in English language with enough words."
+        text_ru = "Это пример текста на русском языке с достаточным количеством слов."
+
+        assert LanguageDetector.detect(text_en) == "en"
+        assert LanguageDetector.detect(text_ru) == "ru"
+        assert mock_detect.call_count == 2
+
+    def test_clear_cache(self) -> None:
+        from app.core.language_detector import LANGDETECT_AVAILABLE
+
+        if not LANGDETECT_AVAILABLE:
+            pytest.skip("langdetect not available")
+
+        text = "This is a sample text in English language with enough words."
+        LanguageDetector.detect(text)
+        assert len(LanguageDetector._cache) > 0
+
+        LanguageDetector.clear_cache()
+        assert len(LanguageDetector._cache) == 0
+
+    @patch("app.core.language_detector.detect")
+    def test_cache_eviction(self, mock_detect: pytest.fixture) -> None:
+        from app.core.language_detector import _CACHE_MAX_SIZE, LANGDETECT_AVAILABLE
+
+        if not LANGDETECT_AVAILABLE:
+            pytest.skip("langdetect not available")
+
+        mock_detect.return_value = "en"
+
+        # Fill cache beyond max size
+        for i in range(_CACHE_MAX_SIZE + 10):
+            text = f"This is unique text number {i} with enough characters for detection."
+            LanguageDetector.detect(text)
+
+        assert len(LanguageDetector._cache) <= _CACHE_MAX_SIZE
+
+    @patch("app.core.language_detector.detect")
+    def test_cache_stores_none_results(self, mock_detect: pytest.fixture) -> None:
+        from app.core.language_detector import LANGDETECT_AVAILABLE, LangDetectException
+
+        if not LANGDETECT_AVAILABLE:
+            pytest.skip("langdetect not available")
+
+        mock_detect.side_effect = LangDetectException("fail", "test")
+        text = "This is a sample text that will fail detection for testing."
+
+        result1 = LanguageDetector.detect(text)
+        assert result1 is None
+
+        # Second call should use cache, not call detect again
+        mock_detect.side_effect = None
+        mock_detect.return_value = "en"
+        result2 = LanguageDetector.detect(text)
+        assert result2 is None  # cached None

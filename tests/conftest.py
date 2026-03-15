@@ -12,6 +12,16 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def _clear_lang_cache() -> Generator[None, None, None]:
+    """Clear language detection cache between tests."""
+    from app.core.language_detector import LanguageDetector
+
+    LanguageDetector.clear_cache()
+    yield
+    LanguageDetector.clear_cache()
+
+
+@pytest.fixture(autouse=True)
 def _isolate_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Ensure tests don't read/write the real cache.json."""
     monkeypatch.setattr(

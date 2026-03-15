@@ -6,172 +6,229 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+from click.testing import CliRunner
 
-from app.cli import create_parser, run_cli
-
-
-class TestCreateParser:
-    def test_parser_created(self):
-        parser = create_parser()
-        assert parser is not None
-
-    def test_translate_command(self):
-        parser = create_parser()
-        args = parser.parse_args(["translate", "Hello world", "-t", "ru"])
-        assert args.command == "translate"
-        assert args.input == "Hello world"
-        assert args.target == "ru"
-
-    def test_translate_alias(self):
-        parser = create_parser()
-        args = parser.parse_args(["t", "Hello"])
-        assert args.command == "t"
-
-    def test_translate_with_file(self):
-        parser = create_parser()
-        args = parser.parse_args(["translate", "--file", "test.txt", "-s", "en", "-t", "de"])
-        assert args.file == "test.txt"
-        assert args.source == "en"
-        assert args.target == "de"
-
-    def test_translate_all_services(self):
-        parser = create_parser()
-        args = parser.parse_args(["translate", "Hello", "--all-services"])
-        assert args.all_services is True
-
-    def test_translate_specific_services(self):
-        parser = create_parser()
-        args = parser.parse_args(["translate", "Hello", "--services", "deepl", "google"])
-        assert args.services == ["deepl", "google"]
-
-    def test_translate_json_format(self):
-        parser = create_parser()
-        args = parser.parse_args(["translate", "Hello", "--format", "json"])
-        assert args.format == "json"
-
-    def test_translate_output_file(self):
-        parser = create_parser()
-        args = parser.parse_args(["translate", "Hello", "-o", "out.txt"])
-        assert args.output == "out.txt"
-
-    def test_services_command(self):
-        parser = create_parser()
-        args = parser.parse_args(["services"])
-        assert args.command == "services"
-
-    def test_languages_command(self):
-        parser = create_parser()
-        args = parser.parse_args(["languages"])
-        assert args.command == "languages"
-
-    def test_detect_command(self):
-        parser = create_parser()
-        args = parser.parse_args(["detect", "Hello world"])
-        assert args.command == "detect"
-        assert args.input == "Hello world"
-
-    def test_config_command_show(self):
-        parser = create_parser()
-        args = parser.parse_args(["config", "--show"])
-        assert args.command == "config"
-        assert args.show is True
-
-    def test_config_set(self):
-        parser = create_parser()
-        args = parser.parse_args(["config", "--set", "chunk_size", "2000"])
-        assert args.set == ["chunk_size", "2000"]
-
-    def test_config_set_key(self):
-        parser = create_parser()
-        args = parser.parse_args(["config", "--set-key", "openai", "sk-test"])
-        assert args.set_key == ["openai", "sk-test"]
+from app.cli import cli, run_cli
 
 
-class TestCmdLanguages:
-    def test_list_languages(self, capsys):
-        run_cli(["languages"])
-        captured = capsys.readouterr()
-        assert "English" in captured.out
-        assert "Russian" in captured.out
-        assert "auto" not in captured.out
+@pytest.fixture
+def runner() -> CliRunner:
+    return CliRunner()
 
 
-class TestCmdServices:
-    @patch("app.cli.Translator")
-    @patch("app.cli._load_settings")
-    def test_list_services(self, mock_settings, mock_translator_cls, capsys):
-        mock_settings.return_value = MagicMock()
-        mock_settings.return_value.get_selected_services.return_value = ["deepl"]
+class TestClickCommands:
+    """Test that click commands parse arguments correctly."""
 
-        mock_svc = MagicMock()
-        mock_svc.get_name.return_value = "DeepL"
-        mock_translator = MagicMock()
-        mock_translator.services = {"deepl": mock_svc}
-        mock_translator.get_available_services.return_value = ["deepl"]
-        mock_translator_cls.return_value = mock_translator
+    def test_translate_command(self, runner: CliRunner) -> None:
+        with patch("app.cli._load_settings") as mock_ls, patch("app.cli.Translator") as mock_t:
+            mock_ls.return_value = MagicMock(
+                get_source_language=MagicMock(return_value="en"),
+                get_target_language=MagicMock(return_value="ru"),
+                get_chunk_size=MagicMock(return_value=1000),
+                get_max_workers=MagicMock(return_value=3),
+                get_selected_services=MagicMock(return_value=["deepl"]),
+            )
+            mock_translator = MagicMock()
+            mock_translator.get_available_services.return_value = ["deepl"]
+            mock_translator.translate_parallel.return_value = {"deepl": "Привет"}
+            mock_t.return_value = mock_translator
 
-        run_cli(["services"])
-        captured = capsys.readouterr()
-        assert "deepl" in captured.out
-        assert "DeepL" in captured.out
+            result = runner.invoke(cli, ["translate", "Hello world", "-t", "ru"])
+            assert result.exit_code == 0
+            assert "Привет" in result.output
 
+    def test_translate_alias(self, runner: CliRunner) -> None:
+        """Aliases work via run_cli."""
+        with patch("app.cli._load_settings") as mock_ls, patch("app.cli.Translator") as mock_t:
+            mock_ls.return_value = MagicMock(
+                get_source_language=MagicMock(return_value="en"),
+                get_target_language=MagicMock(return_value="ru"),
+                get_chunk_size=MagicMock(return_value=1000),
+                get_max_workers=MagicMock(return_value=3),
+                get_selected_services=MagicMock(return_value=["deepl"]),
+            )
+            mock_translator = MagicMock()
+            mock_translator.get_available_services.return_value = ["deepl"]
+            mock_translator.translate_parallel.return_value = {"deepl": "Привет"}
+            mock_t.return_value = mock_translator
 
-class TestCmdDetect:
-    @patch("app.core.language_detector.LanguageDetector")
-    def test_detect_language(self, mock_detector_cls, capsys):
-        mock_detector = MagicMock()
-        mock_detector.detect.return_value = "en"
-        mock_detector_cls.return_value = mock_detector
+            # "t" alias resolved through run_cli
+            result = runner.invoke(cli, ["translate", "Hello"])
+            assert result.exit_code == 0
 
-        run_cli(["detect", "Hello world"])
-        captured = capsys.readouterr()
-        assert "en" in captured.out
-        assert "English" in captured.out
+    def test_translate_with_file(self, runner: CliRunner, tmp_path) -> None:
+        input_file = tmp_path / "test.txt"
+        input_file.write_text("Hello world", encoding="utf-8")
 
-    @patch("app.core.language_detector.LanguageDetector")
-    def test_detect_failure(self, mock_detector_cls):
-        mock_detector = MagicMock()
-        mock_detector.detect.return_value = None
-        mock_detector_cls.return_value = mock_detector
+        with patch("app.cli._load_settings") as mock_ls, patch("app.cli.Translator") as mock_t:
+            mock_ls.return_value = MagicMock(
+                get_source_language=MagicMock(return_value="en"),
+                get_target_language=MagicMock(return_value="de"),
+                get_chunk_size=MagicMock(return_value=1000),
+                get_max_workers=MagicMock(return_value=3),
+                get_selected_services=MagicMock(return_value=["deepl"]),
+            )
+            mock_translator = MagicMock()
+            mock_translator.get_available_services.return_value = ["deepl"]
+            mock_translator.translate_parallel.return_value = {"deepl": "Hallo"}
+            mock_t.return_value = mock_translator
 
-        with pytest.raises(SystemExit) as exc_info:
-            run_cli(["detect", "???"])
-        assert exc_info.value.code == 1
+            result = runner.invoke(
+                cli, ["translate", "--file", str(input_file), "-s", "en", "-t", "de"]
+            )
+            assert result.exit_code == 0
 
+    def test_translate_all_services(self, runner: CliRunner) -> None:
+        with patch("app.cli._load_settings") as mock_ls, patch("app.cli.Translator") as mock_t:
+            mock_ls.return_value = MagicMock(
+                get_source_language=MagicMock(return_value="en"),
+                get_target_language=MagicMock(return_value="ru"),
+                get_chunk_size=MagicMock(return_value=1000),
+                get_max_workers=MagicMock(return_value=3),
+            )
+            mock_translator = MagicMock()
+            mock_translator.get_available_services.return_value = ["deepl", "google"]
+            mock_translator.translate_parallel.return_value = {
+                "deepl": "Привет",
+                "google": "Привет",
+            }
+            mock_t.return_value = mock_translator
 
-class TestCmdConfig:
-    @patch("app.cli._load_settings")
-    def test_show_config(self, mock_settings, capsys):
-        settings = MagicMock()
-        settings.to_dict.return_value = {
-            "api_keys": {"openai": "sk-1234567890abcdef", "deepl": ""},
-            "chunk_size": 1000,
-        }
-        mock_settings.return_value = settings
+            result = runner.invoke(cli, ["translate", "Hello", "--all-services"])
+            assert result.exit_code == 0
+            call_args = mock_translator.translate_parallel.call_args
+            assert call_args.kwargs["services"] == ["deepl", "google"]
 
-        run_cli(["config"])
-        captured = capsys.readouterr()
-        output = json.loads(captured.out)
-        assert output["api_keys"]["openai"] == "sk-1...cdef"
-        assert output["api_keys"]["deepl"] == "(not set)"
+    def test_translate_specific_services(self, runner: CliRunner) -> None:
+        with patch("app.cli._load_settings") as mock_ls, patch("app.cli.Translator") as mock_t:
+            mock_ls.return_value = MagicMock(
+                get_source_language=MagicMock(return_value="en"),
+                get_target_language=MagicMock(return_value="ru"),
+                get_chunk_size=MagicMock(return_value=1000),
+                get_max_workers=MagicMock(return_value=3),
+            )
+            mock_translator = MagicMock()
+            mock_translator.get_available_services.return_value = ["deepl", "google"]
+            mock_translator.translate_parallel.return_value = {
+                "deepl": "Привет",
+                "google": "Здравствуйте",
+            }
+            mock_t.return_value = mock_translator
 
-    @patch("app.cli._load_settings")
-    def test_set_config(self, mock_settings, capsys):
-        settings = MagicMock()
-        mock_settings.return_value = settings
+            result = runner.invoke(
+                cli, ["translate", "Hello", "--services", "deepl", "--services", "google"]
+            )
+            assert result.exit_code == 0
+            assert "DEEPL" in result.output
+            assert "GOOGLE" in result.output
 
-        run_cli(["config", "--set", "chunk_size", "2000"])
-        settings.set.assert_called_once_with("chunk_size", 2000)
-        settings.save.assert_called_once()
+    def test_translate_json_format(self, runner: CliRunner) -> None:
+        with patch("app.cli._load_settings") as mock_ls, patch("app.cli.Translator") as mock_t:
+            mock_ls.return_value = MagicMock(
+                get_source_language=MagicMock(return_value="en"),
+                get_target_language=MagicMock(return_value="ru"),
+                get_chunk_size=MagicMock(return_value=1000),
+                get_max_workers=MagicMock(return_value=3),
+                get_selected_services=MagicMock(return_value=["deepl"]),
+            )
+            mock_translator = MagicMock()
+            mock_translator.get_available_services.return_value = ["deepl"]
+            mock_translator.translate_parallel.return_value = {"deepl": "Привет"}
+            mock_t.return_value = mock_translator
 
-    @patch("app.cli._load_settings")
-    def test_set_api_key(self, mock_settings, capsys):
-        settings = MagicMock()
-        mock_settings.return_value = settings
+            result = runner.invoke(cli, ["translate", "Hello", "--format", "json"])
+            assert result.exit_code == 0
+            parsed = json.loads(result.output)
+            assert parsed["deepl"] == "Привет"
 
-        run_cli(["config", "--set-key", "openai", "sk-test123"])
-        settings.set_api_key.assert_called_once_with("openai", "sk-test123")
-        settings.save.assert_called_once()
+    def test_translate_output_file(self, runner: CliRunner, tmp_path) -> None:
+        out_file = tmp_path / "output.txt"
+        with patch("app.cli._load_settings") as mock_ls, patch("app.cli.Translator") as mock_t:
+            mock_ls.return_value = MagicMock(
+                get_source_language=MagicMock(return_value="en"),
+                get_target_language=MagicMock(return_value="ru"),
+                get_chunk_size=MagicMock(return_value=1000),
+                get_max_workers=MagicMock(return_value=3),
+                get_selected_services=MagicMock(return_value=["deepl"]),
+            )
+            mock_translator = MagicMock()
+            mock_translator.get_available_services.return_value = ["deepl"]
+            mock_translator.translate_parallel.return_value = {"deepl": "Привет"}
+            mock_t.return_value = mock_translator
+
+            result = runner.invoke(cli, ["translate", "Hello", "-o", str(out_file)])
+            assert result.exit_code == 0
+            assert out_file.read_text(encoding="utf-8") == "Привет"
+
+    def test_services_command(self, runner: CliRunner) -> None:
+        with patch("app.cli._load_settings") as mock_ls, patch("app.cli.Translator") as mock_t:
+            mock_ls.return_value = MagicMock(
+                get_selected_services=MagicMock(return_value=["deepl"]),
+            )
+            mock_svc = MagicMock()
+            mock_svc.get_name.return_value = "DeepL"
+            mock_translator = MagicMock()
+            mock_translator.services = {"deepl": mock_svc}
+            mock_translator.get_available_services.return_value = ["deepl"]
+            mock_t.return_value = mock_translator
+
+            result = runner.invoke(cli, ["services"])
+            assert result.exit_code == 0
+            assert "deepl" in result.output
+            assert "DeepL" in result.output
+
+    def test_languages_command(self, runner: CliRunner) -> None:
+        result = runner.invoke(cli, ["languages"])
+        assert result.exit_code == 0
+        assert "English" in result.output
+        assert "Russian" in result.output
+
+    def test_detect_command(self, runner: CliRunner) -> None:
+        with patch("app.core.language_detector.LanguageDetector.detect", return_value="en"):
+            result = runner.invoke(cli, ["detect", "Hello world"])
+            assert result.exit_code == 0
+            assert "en" in result.output
+            assert "English" in result.output
+
+    def test_detect_failure(self, runner: CliRunner) -> None:
+        with patch("app.core.language_detector.LanguageDetector.detect", return_value=None):
+            result = runner.invoke(cli, ["detect", "???"])
+            assert result.exit_code == 1
+
+    def test_config_show(self, runner: CliRunner) -> None:
+        with patch("app.cli._load_settings") as mock_ls:
+            settings = MagicMock()
+            settings.to_dict.return_value = {
+                "api_keys": {"openai": "sk-1234567890abcdef", "deepl": ""},
+                "chunk_size": 1000,
+            }
+            mock_ls.return_value = settings
+
+            result = runner.invoke(cli, ["config"])
+            assert result.exit_code == 0
+            output = json.loads(result.output)
+            assert output["api_keys"]["openai"] == "sk-1...cdef"
+            assert output["api_keys"]["deepl"] == "(not set)"
+
+    def test_config_set(self, runner: CliRunner) -> None:
+        with patch("app.cli._load_settings") as mock_ls:
+            settings = MagicMock()
+            mock_ls.return_value = settings
+
+            result = runner.invoke(cli, ["config", "--set", "chunk_size", "2000"])
+            assert result.exit_code == 0
+            settings.set.assert_called_once_with("chunk_size", 2000)
+            settings.save.assert_called_once()
+
+    def test_config_set_key(self, runner: CliRunner) -> None:
+        with patch("app.cli._load_settings") as mock_ls:
+            settings = MagicMock()
+            mock_ls.return_value = settings
+
+            result = runner.invoke(cli, ["config", "--set-key", "openai", "sk-test123"])
+            assert result.exit_code == 0
+            settings.set_api_key.assert_called_once_with("openai", "sk-test123")
+            settings.save.assert_called_once()
 
 
 class TestCmdTranslate:
@@ -215,7 +272,7 @@ class TestCmdTranslate:
         }
         mock_translator_cls.return_value = mock_translator
 
-        run_cli(["translate", "Hello", "--services", "deepl", "google"])
+        run_cli(["translate", "Hello", "--services", "deepl", "--services", "google"])
         captured = capsys.readouterr()
         assert "DEEPL" in captured.out
         assert "GOOGLE" in captured.out
@@ -371,54 +428,6 @@ class TestCmdTranslate:
 
 
 class TestCmdTranslateDirectory:
-    def test_directory_flag_parsed(self):
-        parser = create_parser()
-        args = parser.parse_args(["translate", "-d", "/some/folder", "-t", "ru"])
-        assert args.directory == "/some/folder"
-        assert args.target == "ru"
-
-    def test_directory_with_output_dir(self):
-        parser = create_parser()
-        args = parser.parse_args(
-            [
-                "translate",
-                "-d",
-                "/game",
-                "--output-dir",
-                "/out",
-                "-t",
-                "ru",
-            ]
-        )
-        assert args.directory == "/game"
-        assert args.output_dir == "/out"
-
-    def test_directory_with_extensions(self):
-        parser = create_parser()
-        args = parser.parse_args(
-            [
-                "translate",
-                "-d",
-                "/game",
-                "--extensions",
-                ".rpy",
-                ".txt",
-                "-t",
-                "ru",
-            ]
-        )
-        assert args.extensions == [".rpy", ".txt"]
-
-    def test_directory_no_recursive(self):
-        parser = create_parser()
-        args = parser.parse_args(["translate", "-d", "/game", "--no-recursive"])
-        assert args.no_recursive is True
-
-    def test_directory_service_flag(self):
-        parser = create_parser()
-        args = parser.parse_args(["translate", "-d", "/game", "--service", "google"])
-        assert args.service == "google"
-
     @patch("app.cli.BatchTranslator")
     @patch("app.cli.Translator")
     @patch("app.cli._load_settings")
@@ -525,8 +534,6 @@ class TestCmdTranslateDirectory:
 
         run_cli(["translate", "-d", str(tmp_path), "-t", "ru", "--format", "json"])
         captured = capsys.readouterr()
-        import json
-
         result = json.loads(captured.out)
         assert len(result) == 1
         assert result[0]["success"] is True

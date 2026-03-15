@@ -5,6 +5,83 @@ All notable changes to PolyTranslate will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-03-15
+
+### Changed
+
+#### Pydantic Settings Schema
+- **Config validation via Pydantic**: Replaced hand-rolled `VALIDATORS` dict with Pydantic `SettingsSchema` model (`app/config/schema.py`)
+- `SettingsSchema` with `@field_validator` for all validated fields (theme, chunk_size, max_workers, cache_max_size, cache_enabled, deepl_plan, renpy_processing_mode, ai_evaluation_auto, openai_model, claude_model, groq_model)
+- `ApiKeysSchema` for nested api_keys with `extra="allow"` for plugin/custom keys
+- Canonical model lists (`OPENAI_MODELS`, `CLAUDE_MODELS`, `GROQ_MODELS`) moved to `schema.py` as single source of truth
+- `Settings` internally stores `self._schema: SettingsSchema` instead of raw `dict[str, Any]`
+- Public API fully preserved — all getters/setters, `get()`, `set()`, `validate()`, `to_dict()` unchanged
+- Backward-compatible error messages (same `ValueError` text as before)
+
+#### Click CLI
+- **CLI rewritten with Click**: Replaced `argparse` with `click.group` + `click.command` decorators (`app/cli.py`)
+- Auto-generated `--help` for all commands and subcommands
+- `click.Choice` for `--format` validation, `multiple=True` for `--services` and `--extensions`
+- `cache` implemented as Click subgroup (`cache export-tmx`, `cache import-tmx`)
+- Command aliases (t, s, l, d, c) preserved via `run_cli()` resolution
+- Added `"cache"` to CLI dispatch list in `main.py`
+- New dependency: `click>=8.0.0` (already a transitive dependency)
+
+### Added
+
+#### Chunk Deduplication
+- **Request deduplication in parallel translation**: Identical chunks translated only once per service
+- `_translate_parallel_async()` and `_translate_parallel_sync()` deduplicate via `dict.fromkeys()`
+- Results mapped back to original chunk positions after translation
+- Progress callback `total_tasks` reflects unique tasks, not original count
+- Significant performance improvement for repetitive content (e.g. Ren'Py menus, UI strings)
+
+#### Language Detection Cache
+- **LRU cache for language detection**: `LanguageDetector._cache` — `OrderedDict` with max 256 entries
+- Cache key: first 200 characters of stripped text (sufficient for accurate detection)
+- `None` results cached too (avoids retrying texts that fail detection)
+- `clear_cache()` classmethod for testing; autouse fixture in `conftest.py`
+
+#### Streaming Translation
+- **Token-by-token streaming for LLM services**: OpenAI, Claude, Groq, OpenRouter, LocalAI now stream tokens as they generate
+- `LLMTranslationService.translate_stream()` and `_call_llm_stream()` — base class methods for OpenAI-compatible streaming (`stream=True`)
+- `ClaudeService._call_llm_stream()` — Anthropic-specific override using `client.messages.stream()` context manager
+- `Translator.translate()` accepts optional `on_token: Callable[[str], None]` — routes to streaming or non-streaming path
+- `Translator.translate_parallel()` accepts `on_token: dict[str, Callable]` — per-service streaming callbacks
+- **GUI streaming**: Tabs created before translation starts, tokens appended live via `root.after()`; full results rebuilt on completion
+- **CLI `--stream` flag**: Prints tokens to stderr as they arrive (disables progress bar)
+- Non-LLM services (DeepL, Google, Yandex) and cache hits emit full result as single callback
+- No changes to `TranslationService` abstract base — streaming is opt-in on `LLMTranslationService` subclasses
+
+#### Dependency Updates
+- **SDK version bumps**: `anthropic` 0.18→≥0.70, `openai` 1.0→≥2.0, `groq` 0.4→≥1.0
+- **All pins relaxed**: Exact version pins (`==`) replaced with minimum version ranges (`>=`) across all dependencies
+- **Reproducibility**: Added `requirements.lock` (full `pip freeze` snapshot) for deterministic installs
+- Updated: `Pillow` ≥12, `python-docx` ≥1.0, `python-pptx` ≥1.0, `pypdf` ≥6, `pydantic` ≥2, `nltk` ≥3.8, `pyinstaller` ≥6
+
+### Technical
+- Updated `app/services/llm_base.py` — `translate_stream()`, `_call_llm_stream()`, `supports_streaming()`, `_build_messages()` helper
+- Updated `app/services/claude.py` — `_call_llm_stream()` override for Anthropic streaming API
+- Updated `app/core/translator.py` — `on_token` parameter in `translate()` and `translate_parallel()`
+- Updated `app/cli.py` — `--stream` flag on `cmd_translate`
+- Updated `app/gui/workflows/translation_workflow.py` — per-service streaming callbacks via `root.after()`
+- Updated `app/gui/tabs/results_tab.py` — `_prepare_streaming_tabs()` and `_append_stream_token()`
+- New file: `requirements.lock` — pinned transitive dependency snapshot for reproducible builds
+- New file: `app/config/schema.py` — Pydantic models for settings validation
+- Updated `app/config/settings.py` — wraps `SettingsSchema` internally
+- Updated `app/cli.py` — full Click rewrite (465 → 505 lines)
+- Updated `app/core/translator.py` — chunk deduplication in both async and sync paths
+- Updated `app/core/language_detector.py` — LRU cache with `OrderedDict`
+- Updated `tests/conftest.py` — autouse `_clear_lang_cache` fixture
+- Updated `tests/test_translator_extended.py` — `_make_settings()` uses `SettingsSchema`, 4 new deduplication tests
+- Updated `tests/test_language_detector.py` — 5 new cache tests (hit, miss, eviction, None caching)
+- Updated `tests/test_cli.py` and `tests/test_cli_extended.py` — Click `CliRunner` + `run_cli()` tests
+- Updated `requirements.txt` — relaxed pins, added `click>=8.0.0`
+- All 652 tests passing, 93% coverage
+- Ruff lint and format clean
+
+---
+
 ## [3.0.0] - 2026-03-14
 
 ### Added
@@ -376,7 +453,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Dependencies
 
-#### Core Dependencies
+#### Core Dependencies (at time of v1.0 release)
 - customtkinter >= 5.2.0
 - PyPDF2 >= 3.0.0
 - python-docx >= 0.8.11
@@ -388,6 +465,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - groq >= 0.4.0
 - langdetect >= 1.0.9
 - nltk >= 3.8.0
+
+*Note: Since v3.1, dependencies updated — see `requirements.txt` for current versions.*
 
 #### Development Dependencies
 - pytest >= 8.0.0
@@ -420,6 +499,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **3.1.0** (2026-03-15) - Streaming translation, Pydantic settings, Click CLI, chunk deduplication, language detection cache, dependency updates
 - **3.0.0** (2026-03-14) - Export results (DOCX/PDF/XLIFF), TMX cache exchange, plugin system, SRT/ASS subtitles, GUI refactoring
 - **2.6.0** (2026-03-12) - Batch Folder Translation (GUI + CLI + API)
 - **2.5.0** (2026-03-12) - Command-Line Interface (CLI) mode

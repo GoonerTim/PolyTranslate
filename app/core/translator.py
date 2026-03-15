@@ -23,6 +23,7 @@ from app.services import (
     TranslationService,
     YandexService,
 )
+from app.services.llm_base import LLMTranslationService
 from app.utils.cache import TranslationCache
 from app.utils.glossary import Glossary
 
@@ -163,6 +164,7 @@ class Translator:
         source_lang: str,
         target_lang: str,
         service_name: str,
+        on_token: Callable[[str], None] | None = None,
     ) -> str:
         service = self.services.get(service_name)
         if service is None:
@@ -174,13 +176,20 @@ class Translator:
         cached = self.cache.get(text, source_lang, target_lang, service_name)
         if cached is not None:
             logger.debug("Cache hit for %s (%s→%s)", service_name, source_lang, target_lang)
-            return self.glossary.apply(cached)
+            result = self.glossary.apply(cached)
+            if on_token:
+                on_token(result)
+            return result
 
-        translated = service.translate(text, source_lang, target_lang)
+        if on_token and isinstance(service, LLMTranslationService) and service.supports_streaming():
+            translated = service.translate_stream(text, source_lang, target_lang, on_token)
+        else:
+            translated = service.translate(text, source_lang, target_lang)
+            if on_token:
+                on_token(translated)
+
         self.cache.put(text, source_lang, target_lang, service_name, translated)
-        translated = self.glossary.apply(translated)
-
-        return translated
+        return self.glossary.apply(translated)
 
     def translate_chunk(
         self,
@@ -211,6 +220,7 @@ class Translator:
         chunk_size: int = 1000,
         max_workers: int = 3,
         progress_callback: Callable[[int, int], None] | None = None,
+        on_token: dict[str, Callable[[str], None]] | None = None,
     ) -> dict[str, str]:
         try:
             loop = asyncio.get_running_loop()
@@ -218,14 +228,20 @@ class Translator:
             loop = None
 
         if loop and loop.is_running():
-            # Already inside an event loop (e.g. Jupyter) — run sync fallback
             return self._translate_parallel_sync(
-                text, source_lang, target_lang, services, chunk_size, progress_callback
+                text, source_lang, target_lang, services, chunk_size, progress_callback, on_token
             )
 
         return asyncio.run(
             self._translate_parallel_async(
-                text, source_lang, target_lang, services, chunk_size, max_workers, progress_callback
+                text,
+                source_lang,
+                target_lang,
+                services,
+                chunk_size,
+                max_workers,
+                progress_callback,
+                on_token,
             )
         )
 
@@ -238,45 +254,60 @@ class Translator:
         chunk_size: int,
         max_workers: int,
         progress_callback: Callable[[int, int], None] | None = None,
+        on_token: dict[str, Callable[[str], None]] | None = None,
     ) -> dict[str, str]:
         chunks = self.split_text(text, chunk_size)
-        total_tasks = len(chunks) * len(services)
+
+        # Deduplicate chunks: translate each unique chunk only once per service
+        unique_chunks = list(dict.fromkeys(chunks))
+        total_tasks = len(unique_chunks) * len(services)
         completed = 0
+        deduped = len(chunks) - len(unique_chunks)
         logger.info(
-            "Starting async parallel translation: %d chunks, %d services",
+            "Starting async parallel translation: %d chunks (%d unique, %d deduplicated), "
+            "%d services",
             len(chunks),
+            len(unique_chunks),
+            deduped,
             len(services),
         )
 
         semaphore = asyncio.Semaphore(max_workers)
-        chunk_results: dict[str, dict[int, str]] = {service: {} for service in services}
+        unique_results: dict[str, dict[str, str]] = {service: {} for service in services}
 
-        async def translate_task(chunk: str, chunk_idx: int, service_name: str) -> None:
+        async def translate_task(chunk: str, service_name: str) -> None:
             nonlocal completed
             async with semaphore:
                 try:
+                    token_cb = on_token.get(service_name) if on_token else None
                     result = await asyncio.to_thread(
-                        self.translate, chunk, source_lang, target_lang, service_name
+                        self.translate,
+                        chunk,
+                        source_lang,
+                        target_lang,
+                        service_name,
+                        token_cb,
                     )
                 except Exception as e:
-                    logger.error("Chunk %d failed for %s: %s", chunk_idx, service_name, e)
+                    logger.error("Chunk failed for %s: %s", service_name, e)
                     result = f"[Error: {e}]"
-                chunk_results[service_name][chunk_idx] = result
+                unique_results[service_name][chunk] = result
                 completed += 1
                 if progress_callback:
                     progress_callback(completed, total_tasks)
 
         tasks = []
-        for chunk_idx, chunk in enumerate(chunks):
+        for chunk in unique_chunks:
             for service_name in services:
-                tasks.append(translate_task(chunk, chunk_idx, service_name))
+                tasks.append(translate_task(chunk, service_name))
 
         await asyncio.gather(*tasks)
 
+        # Map unique results back to original chunk order
         final_results: dict[str, str] = {}
         for service_name in services:
-            ordered_chunks = [chunk_results[service_name][i] for i in range(len(chunks))]
-            final_results[service_name] = " ".join(ordered_chunks)
+            ordered = [unique_results[service_name][chunk] for chunk in chunks]
+            final_results[service_name] = " ".join(ordered)
 
         for service in final_results:
             final_results[service] = self.glossary.apply(final_results[service])
@@ -292,28 +323,35 @@ class Translator:
         services: list[str],
         chunk_size: int,
         progress_callback: Callable[[int, int], None] | None = None,
+        on_token: dict[str, Callable[[str], None]] | None = None,
     ) -> dict[str, str]:
         """Synchronous fallback when already inside an event loop."""
         chunks = self.split_text(text, chunk_size)
-        total_tasks = len(chunks) * len(services)
+
+        # Deduplicate chunks: translate each unique chunk only once per service
+        unique_chunks = list(dict.fromkeys(chunks))
+        total_tasks = len(unique_chunks) * len(services)
         completed = 0
 
-        all_results: dict[str, list[str]] = {service: [] for service in services}
+        unique_results: dict[str, dict[str, str]] = {service: {} for service in services}
 
-        for chunk in chunks:
+        for chunk in unique_chunks:
             for service_name in services:
                 try:
-                    result = self.translate(chunk, source_lang, target_lang, service_name)
+                    token_cb = on_token.get(service_name) if on_token else None
+                    result = self.translate(chunk, source_lang, target_lang, service_name, token_cb)
                 except Exception as e:
                     result = f"[Error: {e}]"
-                all_results[service_name].append(result)
+                unique_results[service_name][chunk] = result
                 completed += 1
                 if progress_callback:
                     progress_callback(completed, total_tasks)
 
-        final_results = {
-            service: " ".join(chunks_list) for service, chunks_list in all_results.items()
-        }
+        # Map unique results back to original chunk order
+        final_results: dict[str, str] = {}
+        for service_name in services:
+            ordered = [unique_results[service_name][chunk] for chunk in chunks]
+            final_results[service_name] = " ".join(ordered)
 
         for service in final_results:
             final_results[service] = self.glossary.apply(final_results[service])
