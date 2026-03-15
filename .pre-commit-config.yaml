@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.2.0
+    rev: v0.14.14
     hooks:
       - id: ruff
         args: [--fix]
@@ -11,6 +11,5 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies:
-          - types-requests
           - types-beautifulsoup4
         args: [--ignore-missing-imports]
