@@ -26,10 +26,8 @@ def _isolate_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Ensure tests don't read/write the real cache.json."""
     monkeypatch.setattr(
         "app.utils.cache.TranslationCache.__init__",
-        lambda self, cache_path=None, max_size=10000, enabled=True: (
-            _original_cache_init(
-                self, cache_path=tmp_path / "cache.json", max_size=max_size, enabled=enabled
-            )
+        lambda self, cache_path=None, max_size=10000, enabled=True: _original_cache_init(
+            self, cache_path=tmp_path / "cache.json", max_size=max_size, enabled=enabled
         ),
     )
 
