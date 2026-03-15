@@ -94,6 +94,28 @@ class TestTranslator:
         # Only chatgpt_proxy should be available (no key required)
         assert "chatgpt_proxy" in translator.services
 
+    def test_service_timeout_default(self, temp_dir: Path) -> None:
+        settings = Settings(temp_dir / "config.json")
+        translator = Translator(settings)
+        assert translator.services["deepl"].timeout == 1800.0
+        assert translator.services["chatgpt_proxy"].timeout == 1800.0
+
+    def test_service_timeout_global(self, temp_dir: Path) -> None:
+        settings = Settings(temp_dir / "config.json")
+        settings.set("service_timeout", 60.0)
+        translator = Translator(settings)
+        assert translator.services["deepl"].timeout == 60.0
+        assert translator.services["google"].timeout == 60.0
+        assert translator.services["chatgpt_proxy"].timeout == 60.0
+
+    def test_service_timeout_per_service(self, temp_dir: Path) -> None:
+        settings = Settings(temp_dir / "config.json")
+        settings.set("service_timeout", 60.0)
+        settings.set("service_timeouts", {"deepl": 15.0})
+        translator = Translator(settings)
+        assert translator.services["deepl"].timeout == 15.0
+        assert translator.services["google"].timeout == 60.0
+
     def test_reload_services(self, temp_dir: Path) -> None:
         settings = Settings(temp_dir / "config.json")
         # Start with no services configured (only chatgpt_proxy available)

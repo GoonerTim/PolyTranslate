@@ -78,42 +78,61 @@ class Translator:
         self._initialize_services()
         logger.info("Translator initialized with %d services", len(self.services))
 
+    def _get_service_timeout(self, service_id: str) -> float:
+        overrides = self.settings.get("service_timeouts", {})
+        if service_id in overrides:
+            return float(overrides[service_id])
+        return float(self.settings.get("service_timeout", 1800.0))
+
     def _initialize_services(self) -> None:
         api_keys = self.settings.get_api_keys()
 
         self.services["deepl"] = DeepLService(
             api_key=api_keys.get("deepl", ""),
             is_free_plan=self.settings.get("deepl_plan", "free") == "free",
+            timeout=self._get_service_timeout("deepl"),
         )
 
-        self.services["yandex"] = YandexService(api_key=api_keys.get("yandex", ""))
+        self.services["yandex"] = YandexService(
+            api_key=api_keys.get("yandex", ""),
+            timeout=self._get_service_timeout("yandex"),
+        )
 
-        self.services["google"] = GoogleService(api_key=api_keys.get("google", ""))
+        self.services["google"] = GoogleService(
+            api_key=api_keys.get("google", ""),
+            timeout=self._get_service_timeout("google"),
+        )
 
         if api_keys.get("openai"):
             self.services["openai"] = OpenAIService(
                 api_key=api_keys["openai"],
                 model=self.settings.get("openai_model", "gpt-4o-mini"),
+                timeout=self._get_service_timeout("openai"),
             )
 
         if api_keys.get("openrouter"):
             self.services["openrouter"] = OpenRouterService(
                 api_key=api_keys["openrouter"],
                 model=self.settings.get("openrouter_model", "openai/gpt-4o-mini"),
+                timeout=self._get_service_timeout("openrouter"),
             )
 
-        self.services["chatgpt_proxy"] = ChatGPTProxyService()
+        self.services["chatgpt_proxy"] = ChatGPTProxyService(
+            timeout=self._get_service_timeout("chatgpt_proxy"),
+        )
 
         if api_keys.get("groq"):
             self.services["groq"] = GroqService(
                 api_key=api_keys["groq"],
                 model=self.settings.get("groq_model", "llama-3.3-70b-versatile"),
+                timeout=self._get_service_timeout("groq"),
             )
 
         if api_keys.get("anthropic"):
             self.services["claude"] = ClaudeService(
                 api_key=api_keys["anthropic"],
                 model=self.settings.get("claude_model", "claude-sonnet-4-6"),
+                timeout=self._get_service_timeout("claude"),
             )
 
         localai_url = self.settings.get("localai_url")
@@ -121,6 +140,7 @@ class Translator:
             self.services["localai"] = LocalAIService(
                 base_url=localai_url,
                 model=self.settings.get("localai_model", "default"),
+                timeout=self._get_service_timeout("localai"),
             )
 
         # Load plugin services

@@ -25,11 +25,19 @@ class GroqService(LLMTranslationService):
         "mixtral-8x7b-32768",
     ]
 
-    def __init__(self, api_key: str = "", model: str = "llama-3.3-70b-versatile") -> None:
-        super().__init__(api_key=api_key, model=model, display_name="Groq", error_prefix="Groq API")
+    def __init__(
+        self, api_key: str = "", model: str = "llama-3.3-70b-versatile", timeout: float = 1800.0
+    ) -> None:
+        super().__init__(
+            api_key=api_key,
+            model=model,
+            display_name="Groq",
+            error_prefix="Groq API",
+            timeout=timeout,
+        )
 
     def _create_client(self) -> Any:
-        return Groq(api_key=self.api_key)
+        return Groq(api_key=self.api_key, timeout=self.timeout)
 
     def _is_available(self) -> bool:
         return GROQ_AVAILABLE

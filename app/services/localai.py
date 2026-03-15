@@ -23,14 +23,19 @@ class LocalAIService(LLMTranslationService):
         base_url: str = "",
         model: str = "default",
         api_key: str = "not-needed",
+        timeout: float = 1800.0,
     ) -> None:
         super().__init__(
-            api_key=api_key, model=model, display_name="LocalAI", error_prefix="LocalAI"
+            api_key=api_key,
+            model=model,
+            display_name="LocalAI",
+            error_prefix="LocalAI",
+            timeout=timeout,
         )
         self.base_url = base_url.rstrip("/")
 
     def _create_client(self) -> Any:
-        return OpenAI(base_url=self.base_url, api_key=self.api_key)
+        return OpenAI(base_url=self.base_url, api_key=self.api_key, timeout=self.timeout)
 
     def _is_available(self) -> bool:
         return OPENAI_AVAILABLE

@@ -26,11 +26,13 @@ class LLMTranslationService(TranslationService):
         model: str = "",
         display_name: str = "",
         error_prefix: str = "",
+        timeout: float = 1800.0,
     ) -> None:
         self.api_key = api_key
         self.model = model
         self._display_name = display_name
         self._error_prefix = error_prefix
+        self.timeout = timeout
         self._client: Any = None
 
     def translate(self, text: str, source_lang: str, target_lang: str) -> str:

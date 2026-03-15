@@ -16,8 +16,9 @@ class YandexService(TranslationService):
     FREE_API_URL = "https://translate.yandex.net/api/v1/tr.json/translate"
     _rate_limiter = RateLimiter(min_interval=0.5)
 
-    def __init__(self, api_key: str = "") -> None:
+    def __init__(self, api_key: str = "", timeout: float = 1800.0) -> None:
         self.api_key = api_key
+        self.timeout = timeout
         self.uuid = str(uuid.uuid4()).replace("-", "")
 
     def translate(self, text: str, source_lang: str, target_lang: str) -> str:
@@ -41,7 +42,7 @@ class YandexService(TranslationService):
             data["sourceLanguageCode"] = source_lang
 
         try:
-            response = httpx.post(self.API_URL, headers=headers, json=data, timeout=30.0)
+            response = httpx.post(self.API_URL, headers=headers, json=data, timeout=self.timeout)
         except httpx.RequestError as e:
             raise ValueError(f"Yandex API request failed: {e}") from e
 
@@ -70,7 +71,7 @@ class YandexService(TranslationService):
         response = retry_with_backoff(
             self._rate_limiter,
             lambda: httpx.post(
-                self.FREE_API_URL, params=params, data=data, headers=headers, timeout=30.0
+                self.FREE_API_URL, params=params, data=data, headers=headers, timeout=self.timeout
             ),
             "Yandex free API",
         )
