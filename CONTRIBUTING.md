@@ -115,8 +115,8 @@ def read_newformat(content: bytes) -> str:
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR-USERNAME/polytranslate.git
-cd polytranslate
+git clone https://github.com/YOUR-USERNAME/PolyTranslate.git
+cd PolyTranslate
 
 # Create virtual environment
 python -m venv venv
@@ -234,12 +234,21 @@ git commit -m "test: add integration tests for parallel translation"
 
 ### 6. Push and Create PR
 
-```bash
-# Push to your fork
-git push origin feature/your-feature-name
+Commit your changes with clear, descriptive messages:
 
-# Create Pull Request on GitHub
+```bash
+git commit -m "#42: Fix retry logic in OpenRouterClient"
 ```
+
+Push to your fork:
+
+```bash
+git push origin 42
+```
+
+Create a Pull Request from your fork to the [main repository](https://github.com/GoonerTim/PolyTranslate).
+
+Tag the maintainer (@GoonerTim) in a comment when your PR is ready for review.
 
 ## Pull Request Guidelines
 

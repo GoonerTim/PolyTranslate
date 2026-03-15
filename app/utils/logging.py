@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 
@@ -24,7 +25,9 @@ def setup_logging(
     )
 
     if log_file:
-        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        file_handler = RotatingFileHandler(
+            log_file, maxBytes=10 * 1024 * 1024, backupCount=3, encoding="utf-8"
+        )
         file_handler.setLevel(level)
         file_handler.setFormatter(formatter)
         root.addHandler(file_handler)
