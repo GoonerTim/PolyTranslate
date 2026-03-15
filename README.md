@@ -2,9 +2,10 @@
 
 <div align="center">
 
+![CI](https://github.com/GoonerTim/PolyTranslate/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-638%20passed-brightgreen.svg)
-![Coverage](https://img.shields.io/badge/coverage-94%25-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-652%20passed-brightgreen.svg)
+![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 **Modern desktop translation application with beautiful UI, CLI mode, and support for multiple translation services**
@@ -232,6 +233,7 @@ PolyTranslate/
 │   │   └── ...
 │   ├── utils/           # Utilities (glossary, cache, rate limiter)
 │   └── cli.py           # Command-line interface
+├── .github/workflows/   # CI/CD (lint, test, release)
 ├── tests/               # Test suite (652 tests, 93% coverage)
 ├── main.py              # Entry point (GUI or CLI)
 └── pyproject.toml       # Project configuration
@@ -246,6 +248,12 @@ mypy app/                    # Type checking
 pre-commit run --all-files   # Run all pre-commit hooks
 pyinstaller build.spec       # Build executable
 ```
+
+### CI/CD
+
+GitHub Actions pipelines run automatically:
+- **CI** (`ci.yml`): Lint, type check, and tests on Python 3.10/3.11/3.12 — triggered on push/PR to `main`
+- **Release** (`release.yml`): Builds executables for Windows, Linux, macOS and creates GitHub Releases — triggered on `v*` tags
 
 ### Architecture
 

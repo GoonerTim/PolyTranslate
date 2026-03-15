@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import pytest
@@ -28,7 +29,7 @@ class TestSetupLogging:
 
         root = logging.getLogger("app")
         assert len(root.handlers) == 1
-        assert isinstance(root.handlers[0], logging.FileHandler)
+        assert isinstance(root.handlers[0], RotatingFileHandler)
 
     def test_creates_console_handler(self, tmp_path: Path) -> None:
         log_file = tmp_path / "test.log"
@@ -37,7 +38,7 @@ class TestSetupLogging:
         root = logging.getLogger("app")
         assert len(root.handlers) == 2
         handler_types = {type(h) for h in root.handlers}
-        assert logging.FileHandler in handler_types
+        assert RotatingFileHandler in handler_types
         assert logging.StreamHandler in handler_types
 
     def test_no_file_handler_when_none(self) -> None:

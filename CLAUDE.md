@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **PolyTranslate** - Modern translation application with beautiful GUI and full CLI mode. Supports 9 translation services (DeepL FREE, Google FREE, Yandex FREE, OpenAI, Claude AI, Groq, OpenRouter, ChatGPT Proxy, LocalAI) and 11 file formats (TXT, PDF, DOCX, PPTX, XLSX, CSV, HTML, MD, Ren'Py, SRT, ASS/SSA). Built with Python 3.10+ and CustomTkinter GUI.
 
-### Key Features (v3.0)
+### Key Features (v3.1)
 - **🆓 FREE Translation**: DeepL, Google, and Yandex work without API keys using unofficial public APIs
 - **🎨 Modern UI**: Redesigned interface with gradients, icons, animations, card-based layout, tabbed interface
 - **📤 Export Results**: Save translations to DOCX, PDF, or XLIFF with original text formatting (v3.0)
@@ -84,6 +84,17 @@ pre-commit run --all-files  # Manual run
 ```bash
 pyinstaller build.spec      # Creates dist/PolyTranslate/
 ```
+
+### CI/CD (GitHub Actions)
+
+**CI** (`.github/workflows/ci.yml`) — runs on push/PR to `main`:
+- **Lint & Format**: Ruff check + format check
+- **Type Check**: Mypy with `continue-on-error` (GUI warnings expected)
+- **Tests**: pytest on Python 3.10, 3.11, 3.12 (matrix); coverage uploaded as artifact for 3.12
+
+**Release** (`.github/workflows/release.yml`) — runs on `v*` tags:
+- Builds PyInstaller executables on Windows, Linux, macOS (matrix)
+- Packages as zip artifacts → creates GitHub Release with auto-generated notes
 
 ## Architecture
 
@@ -221,7 +232,7 @@ Services are **dynamically initialized** in `Translator._initialize_services()`.
 
 **Utilities**:
 - **`app/utils/glossary.py`**: Term dictionary with post-processing replacement, JSON persistence
-- **`app/utils/logging.py`**: Structured logging setup — file handler (`polytranslate.log`) + optional console handler
+- **`app/utils/logging.py`**: Structured logging setup — `RotatingFileHandler` (`polytranslate.log`, 10 MB, 3 backups) + optional console handler
 - **`app/utils/cache.py`**: Translation cache — in-memory + JSON persistence, LRU eviction, thread-safe, TMX export/import for CAT tools
 - **`app/utils/rate_limiter.py`**: Thread-safe rate limiter + `retry_with_backoff()` utility for free API retry logic (used by DeepL, Google, Yandex)
 - **`app/utils/json_helpers.py`**: `parse_json_response()` — strips markdown fences from LLM responses and parses JSON
@@ -311,7 +322,7 @@ Runtime config (gitignored):
 - **Type Checking**: Mypy reports ~36 warnings mostly from CustomTkinter. Expected and acceptable.
 - **NLTK Data**: Downloaded at runtime in `main.py` if missing. Tests handle missing NLTK gracefully.
 - **API Key Security**: Never commit `config.json`. Keys stored locally only.
-- **Logging**: `setup_logging()` called in `main.py` at startup. All modules use `logging.getLogger(__name__)`. Logs written to `polytranslate.log`.
+- **Logging**: `setup_logging()` called in `main.py` at startup. All modules use `logging.getLogger(__name__)`. Logs written to `polytranslate.log` via `RotatingFileHandler` (10 MB max, 3 backups).
 - **Translation Cache**: `TranslationCache` in `Translator` caches raw translations (before glossary). Key = text + source + target + service. LRU eviction, thread-safe, persisted to `cache.json`. Supports TMX 1.4b export/import for interoperability with CAT tools.
 - **Coverage Target**: 70% minimum (pyproject.toml), currently 93% (652 tests). GUI excluded.
 - **Ruff Configuration**: Line length 100, ignores E501, uses modern Python features (UP rules).

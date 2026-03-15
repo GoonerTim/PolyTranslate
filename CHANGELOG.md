@@ -53,6 +53,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Non-LLM services (DeepL, Google, Yandex) and cache hits emit full result as single callback
 - No changes to `TranslationService` abstract base — streaming is opt-in on `LLMTranslationService` subclasses
 
+#### CI/CD (GitHub Actions)
+- **CI pipeline** (`.github/workflows/ci.yml`): Lint (Ruff), type check (Mypy), tests (pytest) on Python 3.10, 3.11, 3.12 matrix — runs on push/PR to `main`
+- **Release pipeline** (`.github/workflows/release.yml`): Builds PyInstaller executables for Windows, Linux, macOS; packages as zip; creates GitHub Release with auto-generated notes — triggered on `v*` tags
+- Concurrency control: in-progress CI runs cancelled when new commits pushed
+
+#### Rotating Log File
+- **Log rotation**: Replaced `FileHandler` with `RotatingFileHandler` — 10 MB max size, 3 backup files (`polytranslate.log.1`, `.2`, `.3`)
+- Prevents `polytranslate.log` from growing indefinitely
+
 #### Dependency Updates
 - **SDK version bumps**: `anthropic` 0.18→≥0.70, `openai` 1.0→≥2.0, `groq` 0.4→≥1.0
 - **All pins relaxed**: Exact version pins (`==`) replaced with minimum version ranges (`>=`) across all dependencies
@@ -77,6 +86,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `tests/test_language_detector.py` — 5 new cache tests (hit, miss, eviction, None caching)
 - Updated `tests/test_cli.py` and `tests/test_cli_extended.py` — Click `CliRunner` + `run_cli()` tests
 - Updated `requirements.txt` — relaxed pins, added `click>=8.0.0`
+- Updated `app/utils/logging.py` — `RotatingFileHandler` (10 MB, 3 backups) instead of `FileHandler`
+- Updated `tests/test_logging.py` — assertions use `RotatingFileHandler` type
+- New file: `.github/workflows/ci.yml` — CI pipeline (lint, typecheck, test matrix)
+- New file: `.github/workflows/release.yml` — Release pipeline (build + GitHub Release)
 - All 652 tests passing, 93% coverage
 - Ruff lint and format clean
 
@@ -499,7 +512,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
-- **3.1.0** (2026-03-15) - Streaming translation, Pydantic settings, Click CLI, chunk deduplication, language detection cache, dependency updates
+- **3.1.0** (2026-03-15) - Streaming translation, Pydantic settings, Click CLI, chunk deduplication, language detection cache, CI/CD, log rotation, dependency updates
 - **3.0.0** (2026-03-14) - Export results (DOCX/PDF/XLIFF), TMX cache exchange, plugin system, SRT/ASS subtitles, GUI refactoring
 - **2.6.0** (2026-03-12) - Batch Folder Translation (GUI + CLI + API)
 - **2.5.0** (2026-03-12) - Command-Line Interface (CLI) mode
