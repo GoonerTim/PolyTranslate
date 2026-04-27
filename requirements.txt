@@ -25,7 +25,7 @@ langdetect>=1.0.9
 nltk>=3.8.0
 
 # Export & config
-reportlab>=4.0.0
+reportlab>=4.4.10
 pydantic>=2.0.0
 click>=8.0.0
 
